@@ -7,6 +7,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageTags>avalonia;hosting;threading;joinabletaskfactory;asynclazy;aot;nativeaot</PackageTags>
     <Description>Thread switching for Scarlet.Extensions.Hosting.Avalonia: JoinableTaskFactory and AsyncLazy bound to the Avalonia UI thread. Contains a trimmed, Native AOT compatible extract of Microsoft.VisualStudio.Threading (MIT); not affiliated with Microsoft.</Description>
   </PropertyGroup>
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <None Include="..\..\docs\Threading.md" Pack="true" PackagePath="README.md" Visible="false" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="" Visible="false" />
     <None Include="..\..\LICENSE-3RD-PARTY.txt" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
