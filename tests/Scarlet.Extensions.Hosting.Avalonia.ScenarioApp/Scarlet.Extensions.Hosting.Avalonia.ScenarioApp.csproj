@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs one hosting scenario per process (Avalonia sets up one application per process) and reports events on stdout.
+    Driven by ScenarioTests, with the UI on a dedicated thread (host.Run) or on the main thread (host.RunAvalonia).
+    Also the Native AOT smoke test: CI publishes it with PublishAot and runs every scenario.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ScenarioApp</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Test code: rules that only matter for shipped libraries. -->
+    <NoWarn>$(NoWarn);CA1515;CA1031;CA2007;CA1812;CA1849;CA1303;CA2000;CA1001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Scarlet.Extensions.Hosting.Avalonia\Scarlet.Extensions.Hosting.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>

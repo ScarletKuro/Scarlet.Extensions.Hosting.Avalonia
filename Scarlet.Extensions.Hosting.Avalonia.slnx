@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Scarlet.Extensions.Hosting.Avalonia/Scarlet.Extensions.Hosting.Avalonia.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp.csproj" />
+    <Project Path="tests/Scarlet.Extensions.Hosting.Avalonia.Tests/Scarlet.Extensions.Hosting.Avalonia.Tests.csproj" />
+  </Folder>
+</Solution>
