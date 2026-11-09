@@ -436,6 +436,22 @@ public class ScenarioTests
             "FloodAccounted|yes");
     }
 
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void JoinableTaskFactorySwitchesToTheUiThreadBeforeAndAfterItStarts(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("threading", mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "EarlySwitch|ui",
+            "SwitchedToMain|ui",
+            "RunOnMain|ui",
+            "AsyncLazy|ui:ui:1",
+            "BackToBackground|other",
+            "HostStopped|not-running");
+    }
+
     [Fact]
     public void RunAvaloniaAfterTheDedicatedUiThreadWasCreatedIsRejected()
     {

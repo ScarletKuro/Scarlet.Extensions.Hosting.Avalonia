@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Scarlet.Extensions.Hosting.Avalonia/Scarlet.Extensions.Hosting.Avalonia.csproj" />
+    <Project Path="src/Scarlet.Extensions.Hosting.Avalonia.Threading/Scarlet.Extensions.Hosting.Avalonia.Threading.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp.csproj" />
     <Project Path="tests/Scarlet.Extensions.Hosting.Avalonia.Tests/Scarlet.Extensions.Hosting.Avalonia.Tests.csproj" />
+    <Project Path="tests/Scarlet.Extensions.Hosting.Avalonia.Threading.Tests/Scarlet.Extensions.Hosting.Avalonia.Threading.Tests.csproj" />
   </Folder>
 </Solution>

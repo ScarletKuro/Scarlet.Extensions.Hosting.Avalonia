@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Scarlet.Extensions.Hosting.Avalonia\Scarlet.Extensions.Hosting.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Scarlet.Extensions.Hosting.Avalonia.Threading\Scarlet.Extensions.Hosting.Avalonia.Threading.csproj" />
   </ItemGroup>
 
 </Project>

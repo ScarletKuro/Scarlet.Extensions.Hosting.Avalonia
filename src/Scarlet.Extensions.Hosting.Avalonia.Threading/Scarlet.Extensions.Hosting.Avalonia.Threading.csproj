@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Scarlet.Extensions.Hosting.Avalonia.Threading</PackageId>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageTags>avalonia;hosting;threading;joinabletaskfactory;asynclazy;aot;nativeaot</PackageTags>
+    <Description>Thread switching for Scarlet.Extensions.Hosting.Avalonia: JoinableTaskFactory and AsyncLazy bound to the Avalonia UI thread. Contains a trimmed, Native AOT compatible extract of Microsoft.VisualStudio.Threading (MIT); not affiliated with Microsoft.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Scarlet.Extensions.Hosting.Avalonia\Scarlet.Extensions.Hosting.Avalonia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Scarlet.Extensions.Hosting.Avalonia.Threading.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\Threading.md" Pack="true" PackagePath="README.md" Visible="false" />
+  </ItemGroup>
+
+</Project>

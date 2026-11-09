@@ -363,6 +363,10 @@ internal static unsafe partial class Scenarios
                 });
                 return true;
 
+            case "threading":
+                ThreadingScenario.Configure(services);
+                return true;
+
             case "macos-dedicated-thread":
                 AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
                 return true;
