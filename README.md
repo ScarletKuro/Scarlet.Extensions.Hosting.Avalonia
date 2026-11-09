@@ -1,13 +1,13 @@
 # Scarlet.Extensions.Hosting.Avalonia
 [![Nuget](https://img.shields.io/nuget/v/Scarlet.Extensions.Hosting.Avalonia?color=ff4081&logo=nuget)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia/)
 [![Nuget](https://img.shields.io/nuget/dt/Scarlet.Extensions.Hosting.Avalonia?color=ff4081&label=nuget%20downloads&logo=nuget)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia/)
-[![GitHub](https://img.shields.io/github/license/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia?color=594ae2&logo=github)](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia?color=594ae2&logo=github)](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/master/LICENSE)
 [![codecov](https://codecov.io/github/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/graph/badge.svg?token=YDLXFV5A6I)](https://codecov.io/github/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia)
 
 Unofficial implementation of Microsoft.Extensions.Hosting for [Avalonia](https://avaloniaui.net/) desktop applications on Windows, Linux and macOS. It runs the Avalonia UI inside the Generic Host, next to your hosted services, with an ordered startup and shutdown in both directions, and is **Native AOT compatible**: every package is `IsAotCompatible`, and CI publishes the scenario app, the tests and the samples with `PublishAot` on all three platforms.
 It follows the design of [Scarlet.Extensions.Hosting.DirectN](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.DirectN) and [Extensions.Hosting.Wpf](https://github.com/ScarletKuro/Microsoft.Extensions.Hosting.Wpf), without depending on them. An extension package provides thread switching between the UI thread and the thread pool (`JoinableTaskFactory`, `AsyncLazy<T>`).
 
-### [Changelog](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/main/CHANGELOG.md) | [Wiki](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki)
+### [Changelog](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/master/CHANGELOG.md) | [Wiki](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki)
 
 ## NuGet Packages
 
