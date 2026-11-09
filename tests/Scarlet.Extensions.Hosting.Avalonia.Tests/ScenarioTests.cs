@@ -144,15 +144,21 @@ public class ScenarioTests
         Assert.Contains("Throwing|ui", result.Events);
         Assert.DoesNotContain(result.Events, e => e.StartsWith("HostStopped", StringComparison.Ordinal));
         Assert.Contains(result.Output, line => line.Contains("Unhandled exception on the Avalonia UI thread", StringComparison.Ordinal));
-        if (mainThread)
+        AssertTerminated(result, mainThread, "HostFailed|InvalidOperationException: unhandled posted failure");
+    }
+
+    /// <summary>
+    /// The process is terminated. On the main thread the exception propagates out of RunAvalonia, like WPF's Application.Run,
+    /// where Main can catch it (here it does: HostFailed), except when it crosses the platform's native window procedure in a
+    /// Native AOT build, which can't unwind native frames and fails fast.
+    /// </summary>
+    private static void AssertTerminated(ScenarioResult result, bool mainThread, string caughtByMain)
+    {
+        Assert.NotEqual(0, result.ExitCode);
+        if (result.ExitCode == ScenarioRunner.HostFailedExitCode)
         {
-            // On the main thread it propagates out of RunAvalonia, like WPF's Application.Run: here Main catches it.
-            result.AssertExitCode(ScenarioRunner.HostFailedExitCode);
-            Assert.Contains("HostFailed|InvalidOperationException: unhandled posted failure", result.Events);
-        }
-        else
-        {
-            Assert.True(result.ExitCode is not 0 and not ScenarioRunner.HostFailedExitCode, result.Describe());
+            Assert.True(mainThread, result.Describe());
+            Assert.Contains(caughtByMain, result.Events);
         }
     }
 
@@ -233,14 +239,7 @@ public class ScenarioTests
         Assert.Contains("Throwing|ui", result.Events);
         Assert.DoesNotContain(result.Events, e => e.StartsWith("HostStopped", StringComparison.Ordinal));
         Assert.Contains(result.Output, line => line.Contains("handler failure", StringComparison.Ordinal));
-        if (mainThread)
-        {
-            result.AssertExitCode(ScenarioRunner.HostFailedExitCode);
-        }
-        else
-        {
-            Assert.True(result.ExitCode is not 0 and not ScenarioRunner.HostFailedExitCode, result.Describe());
-        }
+        AssertTerminated(result, mainThread, "HostFailed|FormatException: handler failure");
     }
 
     [Theory]

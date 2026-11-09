@@ -262,8 +262,10 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     public void HandleApplicationExit() => StopHost();
 
     /// <summary>
-    /// Stops the host. Until the application has started, the stop is deferred to then: stopping a host while it starts cancels
-    /// its startup, which it reports as a startup failure. Never once startup has failed or the host is being disposed.
+    /// Stops the host. Until the host has started, the stop is deferred to then: stopping a host while it starts cancels its
+    /// startup, which it reports as a startup failure. Its start ends after the application has started (the rest of
+    /// StartedAsync), so not the application's start but the host's ApplicationStarted is waited for. That never comes once
+    /// startup has failed, so the stop is then dropped, as it is while the host is being disposed.
     /// </summary>
     private void StopHost()
     {
@@ -272,26 +274,13 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             return;
         }
 
-        var started = _started.Task;
-        if (!started.IsCompleted)
-        {
-            started.ContinueWith(
-                static (_, state) => ((AvaloniaThread)state!).StopHost(),
-                this,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnRanToCompletion,
-                TaskScheduler.Default);
-            return;
-        }
-
-        if (!started.IsCompletedSuccessfully)
-        {
-            return;
-        }
-
         try
         {
-            _serviceProvider.GetService<IHostApplicationLifetime>()?.StopApplication();
+            if (_serviceProvider.GetService<IHostApplicationLifetime>() is { } lifetime)
+            {
+                // Runs at once if the host has already started.
+                lifetime.ApplicationStarted.Register(static state => ((IHostApplicationLifetime)state!).StopApplication(), lifetime);
+            }
         }
         catch (ObjectDisposedException)
         {

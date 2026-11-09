@@ -18,6 +18,7 @@ internal static unsafe partial class Scenarios
     private static readonly ConcurrentQueue<Task> s_flood = new();
     private static int s_floodRan;
     private static volatile bool s_stopFlood;
+    private static readonly TaskCompletionSource s_queryEndSessionReported = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public static bool TryConfigure(string scenario, IServiceCollection services)
     {
@@ -317,6 +318,7 @@ internal static unsafe partial class Scenarios
                     const uint WM_QUERYENDSESSION = 0x0011;
                     var allowed = SendMessageW(window, WM_QUERYENDSESSION, 0, 0);
                     Program.Report("QueryEndSession", $"{allowed}:{(SlowStopService.Stopped ? "host-stopped" : "host-still-running")}");
+                    s_queryEndSessionReported.TrySetResult();
                 });
                 return true;
 
@@ -343,9 +345,16 @@ internal static unsafe partial class Scenarios
                     var dispatcher = sp.GetRequiredService<IAvaloniaThread>().Dispatcher;
                     new Thread(() =>
                     {
+                        // A heavy producer, not a tight loop: Avalonia aborts queued work one operation at a time when it shuts down,
+                        // so a producer that never pauses could keep its queue from ever being empty.
                         while (!s_stopFlood)
                         {
-                            s_flood.Enqueue(dispatcher.InvokeAsync(() => { Interlocked.Increment(ref s_floodRan); }).GetTask());
+                            for (var i = 0; i < 100; i++)
+                            {
+                                s_flood.Enqueue(dispatcher.InvokeAsync(() => { Interlocked.Increment(ref s_floodRan); }).GetTask());
+                            }
+
+                            Thread.Sleep(1);
                         }
                     })
                     { IsBackground = true }.Start();
@@ -384,6 +393,12 @@ internal static unsafe partial class Scenarios
             thread.SynchronizationContext.Post(_ => Program.Report("RanAfterExit"), null);
             thread.Dispatcher.Post(() => Program.Report("RanAfterExit"));
             Program.Report("PostAfterExit", "no-throw");
+        }
+
+        if (scenario == "session-end")
+        {
+            // Reported by the thread that sent the query, which may still be returning from it.
+            s_queryEndSessionReported.Task.Wait(TimeSpan.FromSeconds(10));
         }
 
         if (scenario == "shutdown-timeout")
