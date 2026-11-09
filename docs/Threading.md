@@ -1,47 +1,45 @@
-# Scarlet.Extensions.Hosting.DirectN.Threading
+# Scarlet.Extensions.Hosting.Avalonia.Threading
 
-`JoinableTaskFactory`-based thread switching for [Scarlet.Extensions.Hosting.DirectN](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.DirectN).
+`JoinableTaskFactory`-based thread switching for
+[Scarlet.Extensions.Hosting.Avalonia](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia).
 
-For an awaitable UI operation, the main hosting package also registers `Scarlet.DirectN.Threading.DirectNDispatcher`:
+For a single UI operation, the main package's `IAvaloniaThread.Dispatcher` (Avalonia's UI dispatcher) is enough:
 
 ```csharp
-dispatcher.Post(() => window.Text = "Updated");
-await dispatcher.InvokeAsync(() => { window.Text = "Updated"; }, cancellationToken);
-var title = await dispatcher.InvokeAsync(() => window.Text, cancellationToken);
+ui.Dispatcher.Post(() => viewModel.Status = "Updated");
+await ui.Dispatcher.InvokeAsync(() => viewModel.Status = "Updated");
 ```
 
-This needs only `AddDirectN()`. `Post` schedules without completion tracking; `TryPost` reports whether posting was accepted.
-`InvokeAsync` also supports `Func<Task>` and `Func<Task<T>>`, awaiting the full callback. Use
-`JoinableTaskFactory` when you need to switch the current method to the UI thread or coordinate synchronous waits.
-See [Message Queue](MessageQueue.md) for invocation cancellation, shutdown, and startup behavior.
+Use `JoinableTaskFactory` when you need to switch the current method to the UI thread or coordinate synchronous waits:
 
 ```csharp
-builder.Services.AddDirectN();
+builder.Services.AddAvalonia<App>(app => app.UsePlatformDetect());
 builder.Services.AddThreadSwitching();
 
 public sealed class WindowService(JoinableTaskFactory jtf)
 {
     public async Task ShowAsync()
     {
-        await jtf.SwitchToMainThreadAsync();   // now on the DirectN UI thread
+        await jtf.SwitchToMainThreadAsync();   // now on the Avalonia UI thread
         // ... create or update windows ...
         await TaskScheduler.Default;           // back to the thread pool
     }
 }
 ```
 
-`AddThreadSwitching()` registers a `JoinableTaskContext` whose main thread is the DirectN UI thread, and its
-`JoinableTaskFactory`. It works before the UI thread has started: `SwitchToMainThreadAsync()` then completes once it has.
-Don't wait for that inside a hosted service's `StartAsync` (awaiting the switch, or `JoinableTaskFactory.Run`): the UI
-thread only starts after every `StartAsync` has returned, so host startup would hang. Use `BackgroundService.ExecuteAsync`
-or `IHostApplicationLifetime.ApplicationStarted` instead.
+`AddThreadSwitching()` registers a `JoinableTaskContext` whose main thread is the Avalonia UI thread, and its
+`JoinableTaskFactory`. It works before the application has started: `SwitchToMainThreadAsync()` then completes once it has.
+Don't wait for that inside a hosted service's `StartAsync` (awaiting the switch, or `JoinableTaskFactory.Run`): the UI only
+starts after every `StartAsync` has returned, so host startup would hang. Use `BackgroundService.ExecuteAsync` or
+`IHostApplicationLifetime.ApplicationStarted` instead. It works with both thread models (`host.Run()` and
+`host.RunAvalonia()`).
 
 ## Contents
 
 A trimmed, Native AOT compatible extract of
 [Microsoft.VisualStudio.Threading](https://github.com/microsoft/vs-threading) `v17.12.19` (MIT, not affiliated with Microsoft).
 Type and member names are unchanged, so code moves over by replacing `using Microsoft.VisualStudio.Threading;` with
-`using Scarlet.Extensions.Hosting.DirectN.Threading;`.
+`using Scarlet.Extensions.Hosting.Avalonia.Threading;`.
 
 Public types: `JoinableTaskContext`, `JoinableTaskContextNode`, `JoinableTaskFactory`, `JoinableTask`, `JoinableTask<T>`,
 `JoinableTaskCollection`, `JoinableTaskCreationOptions`, `JoinableTaskContextException`, `AsyncLazy<T>`, and
@@ -56,11 +54,13 @@ var value = await settings.GetValueAsync();
 
 - Not included: `AsyncReaderWriterLock`, `AsyncSemaphore`, `ReentrantSemaphore`, `AsyncManualResetEvent` (internal), the
   other async primitives, WPF `Dispatcher` support, and the hang *report* (`GetHangReport`; hang *detection*
-  `JoinableTaskContext.OnHangDetected` is kept). See [UPSTREAM.md](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.DirectN/blob/main/UPSTREAM.md) for the full list.
+  `JoinableTaskContext.OnHangDetected` is kept). See
+  [UPSTREAM.md](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/master/UPSTREAM.md) for the full list.
 - `AwaitExtensions` has the same name and members as upstream's: in a project that also references
   `Microsoft.VisualStudio.Threading`, `await TaskScheduler.Default` is ambiguous when both namespaces are imported. Import
   only one of them in such files.
 - The VSTHRD analyzers (`Microsoft.VisualStudio.Threading.Analyzers`) recognize the `Microsoft.VisualStudio.Threading`
   namespace only, so they don't analyze these types.
-- `JoinableTaskFactory.Run` on the UI thread doesn't pump window messages while it waits (as upstream): work that needs the
-  UI thread still runs through the factory's own queue, so it doesn't deadlock, but windows don't repaint until it returns.
+- `JoinableTaskFactory.Run` on the UI thread doesn't pump the Avalonia dispatcher while it waits (as upstream): work that
+  needs the UI thread still runs through the factory's own queue, so it doesn't deadlock, but the UI doesn't update until it
+  returns.

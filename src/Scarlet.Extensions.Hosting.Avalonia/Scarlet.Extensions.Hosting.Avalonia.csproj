@@ -6,6 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>avalonia;hosting;generichost;dependencyinjection;desktop;aot;nativeaot</PackageTags>
     <Description>Microsoft.Extensions.Hosting (Generic Host) integration for Avalonia desktop apps on Windows, Linux and macOS. Runs the Avalonia UI thread inside the host, Native AOT compatible.</Description>
   </PropertyGroup>

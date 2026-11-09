@@ -1,5 +1,8 @@
 # Scarlet.Extensions.Hosting.Avalonia: plan
 
+**Status:** all phases are implemented. Locally verified on Windows, with the JIT and as Native AOT, in both thread
+models. Linux and macOS are covered by the CI matrix (`.github/workflows/test.yml`) but haven't run yet.
+
 Run an Avalonia desktop application inside the .NET Generic Host, with the same guarantees as
 Scarlet.Extensions.Hosting.DirectN and Extensions.Hosting.Wpf. That means DI-created windows, hosted services next to
 the UI, an ordered startup and shutdown in both directions, failures that fail the host, and Native AOT.

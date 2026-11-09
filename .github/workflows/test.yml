@@ -1,0 +1,80 @@
+name: test
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }} (JIT and Native AOT)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            exe: .exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            exe: ''
+          - os: macos-latest
+            rid: osx-arm64
+            exe: ''
+    runs-on: ${{ matrix.os }}
+    env:
+      # Avalonia needs a display on Linux: everything with a UI runs inside a virtual X server there.
+      RUN_WITH_DISPLAY: ${{ matrix.os == 'ubuntu-latest' && 'xvfb-run -a' || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Install the Linux display and Avalonia dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libice6 libsm6 libfontconfig1
+
+      - name: Restore
+        run: dotnet restore Scarlet.Extensions.Hosting.Avalonia.slnx
+
+      # TreatWarningsAsErrors + IsAotCompatible: any trim/AOT analyzer warning fails the build.
+      - name: Build
+        run: dotnet build Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-restore
+
+      # Each scenario runs a real host and Avalonia application in its own process, with the UI on a dedicated thread and on
+      # the main thread (main thread only on macOS, where Avalonia requires it).
+      - name: Test
+        shell: bash
+        run: $RUN_WITH_DISPLAY dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-build
+
+      # xunit.v3.aot test project, published as a native executable.
+      - name: Test thread switching on Native AOT
+        shell: bash
+        run: |
+          set -euo pipefail
+          project=Scarlet.Extensions.Hosting.Avalonia.Threading.Tests
+          dotnet publish "tests/$project" -c Release -r ${{ matrix.rid }} -o "artifacts/aot/$project" -p:PublishAot=true -p:TreatWarningsAsErrors=true
+          "artifacts/aot/$project/$project${{ matrix.exe }}"
+
+      # The ScenarioApp drives a real host, Avalonia application and JoinableTaskFactory; publishing it with PublishAot proves the
+      # whole stack compiles to native code without IL/AOT warnings, then the same scenarios run on it.
+      - name: Publish ScenarioApp (Native AOT)
+        run: dotnet publish tests/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp -c Release -r ${{ matrix.rid }} -o artifacts/aot/scenario -p:TreatWarningsAsErrors=true
+
+      - name: Test scenarios on Native AOT
+        shell: bash
+        run: |
+          export SCARLET_SCENARIO_APP="$PWD/artifacts/aot/scenario/Scarlet.Extensions.Hosting.Avalonia.ScenarioApp${{ matrix.exe }}"
+          $RUN_WITH_DISPLAY dotnet test --project tests/Scarlet.Extensions.Hosting.Avalonia.Tests -c Release --no-build --filter-class "*.ScenarioTests"
+
+      - name: Publish samples (Native AOT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish samples/HostingMinimal -c Release -r ${{ matrix.rid }} -o artifacts/aot/HostingMinimal -p:TreatWarningsAsErrors=true
+          dotnet publish samples/HostingTrayIcon -c Release -r ${{ matrix.rid }} -o artifacts/aot/HostingTrayIcon -p:TreatWarningsAsErrors=true
