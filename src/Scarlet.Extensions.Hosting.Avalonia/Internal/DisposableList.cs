@@ -6,15 +6,26 @@ internal sealed class DisposableList<T> : IDisposable
     private readonly Lock _lock = new();
     private bool _disposeCalled;
 
+    /// <summary>
+    /// Adds an item to dispose. Once the list has been disposed, a disposable item is disposed right away instead.
+    /// </summary>
     public void Add(T item)
     {
-        if (item is IDisposable disposable)
+        if (item is not IDisposable disposable)
         {
-            lock (_lock)
+            return;
+        }
+
+        lock (_lock)
+        {
+            if (!_disposeCalled)
             {
                 _disposables.Add(disposable);
+                return;
             }
         }
+
+        disposable.Dispose();
     }
 
     /// <summary>

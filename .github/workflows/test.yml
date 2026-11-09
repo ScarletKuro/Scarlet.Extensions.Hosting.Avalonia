@@ -47,10 +47,11 @@ jobs:
         run: dotnet build Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-restore
 
       # Each scenario runs a real host and Avalonia application in its own process, with the UI on a dedicated thread and on
-      # the main thread (main thread only on macOS, where Avalonia requires it).
+      # the main thread (main thread only on macOS, where Avalonia requires it). GC reachability tests (GC=true) are skipped
+      # here because the JIT can keep objects alive longer than they expect; they run on Native AOT below.
       - name: Test
         shell: bash
-        run: $RUN_WITH_DISPLAY dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-build
+        run: $RUN_WITH_DISPLAY dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-build --filter-not-trait "GC=true"
 
       # xunit.v3.aot test project, published as a native executable.
       - name: Test thread switching on Native AOT

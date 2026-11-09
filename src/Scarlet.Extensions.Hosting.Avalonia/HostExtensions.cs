@@ -39,8 +39,19 @@ public static class HostExtensions
         catch
         {
             // An exception left unhandled on the UI thread propagates from here, as from WPF's Application.Run: it terminates
-            // the process unless Main catches it. Stop the host rather than leave it running without its UI.
+            // the process unless Main catches it. Stop the host first, and wait until it has stopped and been disposed, so a
+            // caller's own disposal doesn't race with hosted services still stopping. The UI exception is the one reported.
             thread.HandleApplicationExit();
+            try
+            {
+                run.GetAwaiter().GetResult();
+            }
+#pragma warning disable CA1031 // The UI exception is rethrown instead.
+            catch
+#pragma warning restore CA1031
+            {
+            }
+
             throw;
         }
 

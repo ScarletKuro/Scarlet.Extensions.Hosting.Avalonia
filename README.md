@@ -82,7 +82,9 @@ doesn't inherit the `ExecutionContext` (`AsyncLocal` values, logging scopes) of 
   application**. The host's stop can't be vetoed by a window's `Closing` handler. Cleanup (`OnExit`, component disposal)
   runs on the UI thread while every service still works, before any hosted service's `StopAsync`.
 - **Work queued for the UI before it runs** (through `IAvaloniaThread.Dispatcher`, `SynchronizationContext` or
-  `JoinableTaskFactory`) runs once the main loop runs, in the caller's `ExecutionContext`. Work still queued when the
+  `JoinableTaskFactory`) runs once the main loop runs, in the caller's `ExecutionContext`. Startup code that pumps a
+  nested dispatcher frame (e.g. `Dispatcher.PushFrame` in a component) runs it earlier, before `IsRunning` is true:
+  Avalonia's queue holds it, and a nested frame drains that queue. Work still queued when the
   application exits, or for an application that never starts, is aborted: `InvokeAsync` callers get a cancelled task instead
   of waiting forever.
 - **When the Windows session ends** (logoff, shutdown, restart), the application exits and the host stops, bounded by the

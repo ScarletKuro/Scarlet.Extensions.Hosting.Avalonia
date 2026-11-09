@@ -16,8 +16,10 @@ public interface IAvaloniaThread
 
     /// <summary>
     /// Gets Avalonia's UI dispatcher (<see cref="Dispatcher.UIThread"/>), which the host claims for <see cref="MainThread"/>
-    /// before any hosted service starts. Work posted before the application has started runs once its main loop runs.
-    /// Work still queued when it exits, or if it never starts, is aborted: <c>InvokeAsync</c> callers get a cancelled task.
+    /// before any hosted service starts. Work posted before the application has started runs once its main loop runs, or
+    /// earlier if startup code pumps a nested dispatcher frame (e.g. <c>Dispatcher.PushFrame</c> in a component), while
+    /// <see cref="IAvaloniaContext.IsRunning"/> is still <see langword="false"/>. Work still queued when it exits, or if it
+    /// never starts, is aborted: <c>InvokeAsync</c> callers get a cancelled task.
     /// Do not await it inside a hosted service's StartAsync: the UI starts only after every StartAsync has returned.
     /// </summary>
     /// <exception cref="InvalidOperationException">Avalonia's UI thread was already taken by another thread.</exception>

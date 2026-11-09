@@ -56,6 +56,32 @@ internal sealed class WindowComponent(bool vetoClose = false) : IAvaloniaCompone
 }
 
 /// <summary>
+/// Exits the application while it initializes, through the lifetime's Shutdown.
+/// </summary>
+internal sealed class ShuttingDownComponent(IAvaloniaContext context) : IAvaloniaComponent, IDisposable
+{
+    public void InitializeComponent()
+    {
+        Program.Report("ShuttingDownComponentInit", Program.Where());
+        context.Lifetime!.Shutdown();
+    }
+
+    public void Dispose() => Program.Report("ShuttingDownComponentDispose", Program.Where());
+}
+
+/// <summary>
+/// Must never be created: it comes after a component that exits the application.
+/// </summary>
+internal sealed class NeverCreatedComponent : IAvaloniaComponent, IDisposable
+{
+    public NeverCreatedComponent() => Program.Report("NeverCreatedComponentCreated", Program.Where());
+
+    public void InitializeComponent() => Program.Report("NeverCreatedComponentInit", Program.Where());
+
+    public void Dispose() => Program.Report("NeverCreatedComponentDispose", Program.Where());
+}
+
+/// <summary>
 /// Initializes slower than the host is willing to wait for startup.
 /// </summary>
 internal sealed class SlowComponent : IAvaloniaComponent, IDisposable

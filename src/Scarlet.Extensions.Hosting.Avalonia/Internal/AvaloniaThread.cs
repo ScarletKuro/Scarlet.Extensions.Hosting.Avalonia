@@ -416,7 +416,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
         }
 
         using var responded = new ManualResetEventSlim(false);
-        dispatcher.Post(() => responded.Set(), DispatcherPriority.Send);
+        dispatcher.Post(responded.Set, DispatcherPriority.Send);
         if (responded.Wait(ProcessExitResponseTimeout) || _completed.Task.IsCompleted)
         {
             return;
@@ -509,13 +509,27 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
                 _context.Application = builder.Instance;
                 _context.Lifetime = lifetime;
 
-                _options.OnStartup?.Invoke(_serviceProvider, _context);
+                // The application can exit at any stage (the lifetime's Shutdown from App, OnStartup or a component): its
+                // cleanup has run then, so nothing more may be created.
+                if (!_exiting)
+                {
+                    _options.OnStartup?.Invoke(_serviceProvider, _context);
+                }
+
                 InitializeComponents(components);
             }
             catch (Exception exception)
             {
                 // An exception escaping the UI thread would kill the process without being logged.
                 _started.TrySetException(exception);
+                return;
+            }
+
+            if (_exiting)
+            {
+                // Exited before its main loop ran, like an application closing its only window during startup: the host
+                // starts as usual (Started completes when the UI thread ends) and then stops.
+                StopHost();
                 return;
             }
 
@@ -689,6 +703,11 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     {
         foreach (var factory in _serviceProvider.GetServices<Func<IAvaloniaComponent>>())
         {
+            if (_exiting)
+            {
+                return;
+            }
+
             var component = factory();
             // Track it before initializing, so it is disposed even if InitializeComponent throws.
             components.Add(component);
@@ -740,12 +759,14 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
                     "or JoinableTaskFactory.SwitchToMainThreadAsync.");
             }
 
-            // InvokeAsync rather than Invoke: Invoke can return as if the work ran when the UI thread aborts it.
+            // InvokeAsync rather than Invoke: Invoke can return as if the work ran when the UI thread aborts it. Only an aborted
+            // operation was dropped; a cancellation the callback itself throws is the callback's exception.
+            var operation = dispatcher.InvokeAsync(() => d(state), DispatcherPriority.Send);
             try
             {
-                dispatcher.InvokeAsync(() => d(state), DispatcherPriority.Send).GetTask().GetAwaiter().GetResult();
+                operation.GetTask().GetAwaiter().GetResult();
             }
-            catch (OperationCanceledException exception)
+            catch (OperationCanceledException exception) when (operation.Status == DispatcherOperationStatus.Aborted)
             {
                 throw new InvalidOperationException("The work was dropped: the Avalonia application exited before running it.", exception);
             }

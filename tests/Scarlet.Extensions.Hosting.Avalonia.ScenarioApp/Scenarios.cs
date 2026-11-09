@@ -139,6 +139,20 @@ internal static unsafe partial class Scenarios
                         Program.Report("SendException", ex.Message);
                     }
 
+                    // A cancellation the callback throws is its exception, not the work being dropped.
+                    try
+                    {
+                        thread.SynchronizationContext.Send(_ => throw new OperationCanceledException("callback cancelled"), null);
+                    }
+                    catch (OperationCanceledException ex)
+                    {
+                        Program.Report("SendCallbackCancellation", ex.Message);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Program.Report("SendCallbackCancellation", $"misreported: {ex.Message}");
+                    }
+
                     // On the UI thread itself, Send runs inline.
                     thread.SynchronizationContext.Post(_ => SendAndReport(thread.SynchronizationContext, "SendOnUiThread"), null);
                     thread.SynchronizationContext.Post(_ => sp.GetRequiredService<IHostApplicationLifetime>().StopApplication(), null);
@@ -361,6 +375,37 @@ internal static unsafe partial class Scenarios
                     Thread.Sleep(200);
                     sp.GetRequiredService<IHostApplicationLifetime>().StopApplication();
                 });
+                return true;
+
+            case "shutdown-in-startup":
+                services.AddAvalonia<ScenarioApplication>(Configure, options =>
+                {
+                    options.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                    options.OnStartup = (_, context) =>
+                    {
+                        Program.Report("OnStartup", Program.Where());
+                        context.Lifetime!.Shutdown();
+                    };
+                    options.OnExit = (_, _) => Program.Report("OnExit", Program.Where());
+                });
+                services.AddAvaloniaComponent<NeverCreatedComponent>();
+                return true;
+
+            case "shutdown-in-component":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ProbeComponent>();
+                services.AddAvaloniaComponent<ShuttingDownComponent>();
+                services.AddAvaloniaComponent<NeverCreatedComponent>();
+                return true;
+
+            case "unhandled-crash-slow-stop":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddHostedService<SlowStopService>();
+                OnStarted(services, sp => sp.GetRequiredService<IAvaloniaThread>().SynchronizationContext.Post(_ =>
+                {
+                    Program.Report("Throwing", Program.Where());
+                    throw new InvalidOperationException("unhandled posted failure");
+                }, null));
                 return true;
 
             case "threading":

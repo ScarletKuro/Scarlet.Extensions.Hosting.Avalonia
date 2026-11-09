@@ -173,6 +173,7 @@ public class ScenarioTests
             "SendBeforeStartRejected|",
             "SendWhileRunningRan|ui",
             "SendException|sent failure",
+            "SendCallbackCancellation|callback cancelled",
             "SendOnUiThreadRan|ui",
             "SendDuringExitRejected|",
             "HostStopped|not-running",
@@ -450,6 +451,53 @@ public class ScenarioTests
             "AsyncLazy|ui:ui:1",
             "BackToBackground|other",
             "HostStopped|not-running");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void ShuttingDownInOnStartupStopsTheHostWithoutCreatingAnyComponent(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("shutdown-in-startup", mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "OnStartup|ui",
+            "OnExit|ui",
+            "HostStopped|not-running");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void AComponentShuttingDownStopsTheHostDisposesTheComponentsCreatedSoFarAndCreatesNoMore(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("shutdown-in-component", mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "OnStartup|ui:app",
+            "ComponentInit|ui",
+            "ShuttingDownComponentInit|ui",
+            "OnExit|ui",
+            "ShuttingDownComponentDispose|ui",
+            "ComponentDispose|ui",
+            "HostStopped|not-running");
+    }
+
+    [Fact]
+    public void AnUnhandledUiExceptionLeavesRunAvaloniaOnlyOnceTheHostHasStopped()
+    {
+        var result = ScenarioRunner.Run("unhandled-crash-slow-stop", mainThread: true);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Throwing|ui", result.Events);
+        if (result.ExitCode == ScenarioRunner.HostFailedExitCode)
+        {
+            // Main caught it from RunAvalonia: the other hosted service had finished stopping by then. (A Native AOT build
+            // fails fast instead: the exception can't cross the platform's native window procedure.)
+            Assert.Equal(
+                ["OnStartup|ui:app", "Throwing|ui", "OnExit|ui", "OtherStopping|other", "OtherStopped|other", "HostFailed|InvalidOperationException: unhandled posted failure"],
+                result.Events);
+        }
     }
 
     [Fact]
