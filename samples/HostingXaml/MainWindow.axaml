@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:HostingXaml"
+        x:Class="HostingXaml.MainWindow"
+        x:DataType="local:MainWindowViewModel"
+        Title="Scarlet.Extensions.Hosting.Avalonia"
+        Width="460" Height="220">
+  <StackPanel Margin="24" Spacing="12" VerticalAlignment="Center">
+    <TextBlock Text="{Binding Greeting}" FontSize="20" />
+    <TextBlock Text="{Binding Time}" />
+    <Button Content="Stop the host" Command="{Binding StopCommand}" />
+  </StackPanel>
+</Window>

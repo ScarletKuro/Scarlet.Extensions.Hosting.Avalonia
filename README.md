@@ -98,8 +98,9 @@ For the full guide including **components**, **application options**, **thread m
 ## Samples
 1. [HostingMinimal](samples/HostingMinimal): A main window created by a component, and a `BackgroundService` updating it through **Threading** (`JoinableTaskFactory`).
 2. [HostingTrayIcon](samples/HostingTrayIcon): A windowless tray application (`ShutdownMode.OnExplicitShutdown`) using Avalonia's `TrayIcon`, with Exit stopping the host.
+3. [HostingXaml](samples/HostingXaml): The Avalonia template's layout (`App.axaml`, `MainWindow.axaml`) with an `App` created by constructor injection, a view model from the container bound with compiled bindings, and a `BackgroundService` updating it through **Threading**.
 
-Both publish with `PublishAot` on Windows, Linux and macOS.
+All publish with `PublishAot` on Windows, Linux and macOS.
 
 ## Documentation
 

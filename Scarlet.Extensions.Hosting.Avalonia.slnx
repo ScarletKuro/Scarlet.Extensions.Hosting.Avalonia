@@ -2,6 +2,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/HostingMinimal/HostingMinimal.csproj" />
     <Project Path="samples/HostingTrayIcon/HostingTrayIcon.csproj" />
+    <Project Path="samples/HostingXaml/HostingXaml.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Scarlet.Extensions.Hosting.Avalonia/Scarlet.Extensions.Hosting.Avalonia.csproj" />

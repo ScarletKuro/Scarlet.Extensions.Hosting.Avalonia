@@ -108,3 +108,4 @@ jobs:
           set -euo pipefail
           dotnet publish samples/HostingMinimal -c Release -r ${{ matrix.rid }} -o artifacts/aot/HostingMinimal -p:TreatWarningsAsErrors=true
           dotnet publish samples/HostingTrayIcon -c Release -r ${{ matrix.rid }} -o artifacts/aot/HostingTrayIcon -p:TreatWarningsAsErrors=true
+          dotnet publish samples/HostingXaml -c Release -r ${{ matrix.rid }} -o artifacts/aot/HostingXaml -p:TreatWarningsAsErrors=true
