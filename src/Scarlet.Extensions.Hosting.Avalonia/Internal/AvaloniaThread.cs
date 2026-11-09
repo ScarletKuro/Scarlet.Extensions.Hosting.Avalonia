@@ -384,10 +384,11 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
 
     private void ExitRunningApplication()
     {
-        // The host is stopping: a window's Closing handler can't veto it, so the forced Shutdown, not TryShutdown.
+        // The host is stopping: a window's Closing handler can't veto it, so the forced Shutdown, not TryShutdown. Avalonia sets
+        // Environment.ExitCode to the code it is given, so it is given the current one (e.g. from Environment.Exit), not 0.
         if (_context.IsRunning && !_exiting && _lifetime is { } lifetime)
         {
-            lifetime.Shutdown();
+            lifetime.Shutdown(Environment.ExitCode);
         }
     }
 
@@ -579,7 +580,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             {
                 try
                 {
-                    lifetime.Shutdown();
+                    lifetime.Shutdown(Environment.ExitCode);
                 }
                 catch (Exception exception)
                 {

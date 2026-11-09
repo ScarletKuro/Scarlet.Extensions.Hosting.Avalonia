@@ -171,6 +171,7 @@ public class ScenarioTests
         result.AssertExitCode(0);
         result.AssertEvents(
             "SendBeforeStartRejected|",
+            "ContextCopy|same",
             "SendWhileRunningRan|ui",
             "SendException|sent failure",
             "SendCallbackCancellation|callback cancelled",
@@ -533,6 +534,92 @@ public class ScenarioTests
                 ["OnStartup|ui:app", "Throwing|ui", "OnExit|ui", "OtherStopping|other", "OtherStopped|other", "HostFailed|InvalidOperationException: unhandled posted failure"],
                 result.Events);
         }
+    }
+
+    [Fact]
+    public void AnUnhandledUiExceptionIsTheOneRunAvaloniaReportsEvenWhenAServiceFailsToStop()
+    {
+        var result = ScenarioRunner.Run("unhandled-crash-failing-stop", mainThread: true);
+
+        AssertTerminated(result, mainThread: true, "HostFailed|InvalidOperationException: unhandled posted failure");
+        Assert.DoesNotContain(result.Events, static e => e.Contains("stop failure", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void HandleApplicationExitOnTheUiThreadExitsTheApplicationAndStopsTheHost(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("handle-exit-on-ui", mainThread);
+
+        // It can't wait on the UI thread for the UI thread to end: it returns, and the application exits right after.
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "OnStartup|ui:app",
+            "ComponentInit|ui",
+            "HandleApplicationExit|ui",
+            "HandleApplicationExitReturned|ui",
+            "OnExit|ui",
+            "ComponentDispose|ui",
+            "HostStopped|not-running");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void EnvironmentExitFromAServiceCleansUpTheApplicationAndKeepsItsExitCode(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("environment-exit-from-service", mainThread);
+
+        // The host stopping the application must not replace the exit code with Avalonia's default 0.
+        result.AssertExitCode(5);
+        result.AssertEventsIgnoringLast(
+            "HostStopped|not-running",
+            "OnStartup|ui:app",
+            "ComponentInit|ui",
+            "EnvironmentExit|other",
+            "OnExit|ui",
+            "ComponentDispose|ui",
+            "OtherStopping|other",
+            "OtherStopped|other");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void ASendStillQueuedWhenTheApplicationExitsThrowsInsteadOfHanging(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("send-queued-at-exit", mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "OnStartup|ui:app",
+            "ExitingWithSendQueued|ui",
+            "OnExit|ui",
+            "QueuedSendDropped|dropped",
+            "HostStopped|not-running",
+            "QueuedSendReturned|yes");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void AMainWindowFailingAsItIsShownFailsHostStartupAndCleansUp(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("main-window-fails", mainThread);
+
+        result.AssertExitCode(ScenarioRunner.HostFailedExitCode);
+        result.AssertEvents(
+            "OnStartup|ui:app",
+            "MainWindowOpened|ui",
+            "OnExit|ui",
+            "MainWindowFailingComponentDispose|ui",
+            "HostFailed|InvalidOperationException: main window failure");
+    }
+
+    [Fact]
+    public void StartupCancelledBeforeTheUiStartsNeverCreatesIt()
+    {
+        var result = ScenarioRunner.Run("canceled-before-ui");
+
+        result.AssertExitCode(0);
+        result.AssertEvents("CancellingStartup|other", "Started|not-running");
     }
 
     [Fact]

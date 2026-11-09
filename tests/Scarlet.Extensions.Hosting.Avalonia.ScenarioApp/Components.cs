@@ -229,6 +229,50 @@ internal sealed class FailingStartedService : IHostedLifecycleService
 }
 
 /// <summary>
+/// Sets a main window that fails when it is shown.
+/// </summary>
+internal sealed class MainWindowFailingComponent(IAvaloniaContext context) : IAvaloniaComponent, IDisposable
+{
+    public void InitializeComponent()
+    {
+        var window = new Window { Title = "Scarlet failing window", Width = 240, Height = 120 };
+        window.Opened += (_, _) =>
+        {
+            Program.Report("MainWindowOpened", Program.Where());
+            throw new InvalidOperationException("main window failure");
+        };
+        context.Lifetime!.MainWindow = window;
+    }
+
+    public void Dispose() => Program.Report("MainWindowFailingComponentDispose", Program.Where());
+}
+
+/// <summary>
+/// Fails to stop.
+/// </summary>
+internal sealed class FailingStopService : IHostedService
+{
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task StopAsync(CancellationToken cancellationToken) => throw new InvalidOperationException("stop failure");
+}
+
+/// <summary>
+/// Cancels the host's startup from its StartAsync, after which the UI would start.
+/// </summary>
+internal sealed class CancelStartupService : IHostedService
+{
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        Program.Report("CancellingStartup", Program.Where());
+        Scenarios.StartupCancellation.Cancel();
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+/// <summary>
 /// Sends to the UI thread from StartAsync, before the application runs: must throw instead of deadlocking the host.
 /// </summary>
 internal sealed class SendBeforeStartService(IAvaloniaThread thread) : IHostedService

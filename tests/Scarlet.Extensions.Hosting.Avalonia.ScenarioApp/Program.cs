@@ -53,16 +53,16 @@ internal static class Program
         var context = host.Services.GetRequiredService<IAvaloniaContext>();
         Scenarios.BeforeRun(Scenario, host);
 
-        if (Scenario == "canceled-during-init")
+        if (Scenario is "canceled-during-init" or "canceled-before-ui")
         {
-            // Startup is cancelled while a component is still initializing: the main loop must never run.
+            // Startup is cancelled while a component is still initializing, or before the UI starts: the main loop must never run.
             var thread = host.Services.GetRequiredService<IAvaloniaThread>();
             s_uiThread = thread.MainThread;
-            using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+            using var cancel = Scenario == "canceled-before-ui" ? Scenarios.StartupCancellation : new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
             try
             {
                 host.StartAsync(cancel.Token).GetAwaiter().GetResult();
-                Report("Started");
+                Report("Started", context.IsRunning ? "running" : "not-running");
             }
             catch (OperationCanceledException)
             {

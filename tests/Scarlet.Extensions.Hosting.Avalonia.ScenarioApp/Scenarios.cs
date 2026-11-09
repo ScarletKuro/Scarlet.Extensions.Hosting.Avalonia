@@ -19,6 +19,9 @@ internal static unsafe partial class Scenarios
     private static int s_floodRan;
     private static volatile bool s_stopFlood;
     private static readonly TaskCompletionSource s_queryEndSessionReported = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static readonly TaskCompletionSource s_queuedSendReturned = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public static CancellationTokenSource StartupCancellation { get; } = new();
 
     public static bool TryConfigure(string scenario, IServiceCollection services)
     {
@@ -129,6 +132,7 @@ internal static unsafe partial class Scenarios
                 OnStarted(services, sp =>
                 {
                     var thread = sp.GetRequiredService<IAvaloniaThread>();
+                    Program.Report("ContextCopy", ReferenceEquals(thread.SynchronizationContext.CreateCopy(), thread.SynchronizationContext) ? "same" : "new");
                     SendAndReport(thread.SynchronizationContext, "SendWhileRunning");
                     try
                     {
@@ -430,6 +434,83 @@ internal static unsafe partial class Scenarios
                 ThreadingScenario.Configure(services);
                 return true;
 
+            case "handle-exit-on-ui":
+                // E.g. a tray icon's Exit item: the UI thread itself asks the host to stop.
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ProbeComponent>();
+                OnStarted(services, sp =>
+                {
+                    var thread = sp.GetRequiredService<IAvaloniaThread>();
+                    thread.Dispatcher.Post(() =>
+                    {
+                        Program.Report("HandleApplicationExit", Program.Where());
+                        thread.HandleApplicationExit();
+                        Program.Report("HandleApplicationExitReturned", Program.Where());
+                    });
+                });
+                return true;
+
+            case "environment-exit-from-service":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ProbeComponent>();
+                services.AddHostedService<SlowStopService>();
+                OnStarted(services, _ =>
+                {
+                    Program.Report("EnvironmentExit", Program.Where());
+                    Environment.Exit(5);
+                });
+                return true;
+
+            case "send-queued-at-exit":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                OnStarted(services, sp =>
+                {
+                    var thread = sp.GetRequiredService<IAvaloniaThread>();
+                    using var busy = new ManualResetEventSlim(false);
+                    thread.Dispatcher.Post(() =>
+                    {
+                        // Keeps the UI thread busy until the Send below is queued, then exits the application with it still queued.
+                        busy.Set();
+                        Thread.Sleep(300);
+                        Program.Report("ExitingWithSendQueued", Program.Where());
+                        thread.Context.Lifetime!.Shutdown();
+                    });
+                    busy.Wait();
+                    try
+                    {
+                        thread.SynchronizationContext.Send(_ => Program.Report("QueuedSendRan", Program.Where()), null);
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        Program.Report("QueuedSendDropped", exception.Message.StartsWith("The work was dropped", StringComparison.Ordinal) ? "dropped" : exception.Message);
+                    }
+
+                    s_queuedSendReturned.TrySetResult();
+                });
+                return true;
+
+            case "unhandled-crash-failing-stop":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddHostedService<FailingStopService>();
+                OnStarted(services, sp => sp.GetRequiredService<IAvaloniaThread>().SynchronizationContext.Post(_ =>
+                {
+                    Program.Report("Throwing", Program.Where());
+                    throw new InvalidOperationException("unhandled posted failure");
+                }, null));
+                return true;
+
+            case "main-window-fails":
+                // The lifetime shows MainWindow when its main loop starts: that failure must fail host startup.
+                AddAvalonia(services, ShutdownMode.OnMainWindowClose);
+                services.AddAvaloniaComponent(sp => new MainWindowFailingComponent(sp.GetRequiredService<IAvaloniaContext>()));
+                return true;
+
+            case "canceled-before-ui":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ProbeComponent>();
+                services.AddHostedService<CancelStartupService>();
+                return true;
+
             case "macos-dedicated-thread":
                 AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
                 return true;
@@ -472,6 +553,11 @@ internal static unsafe partial class Scenarios
         {
             // ShutdownTimeout (1 s) once: disposing the host doesn't wait for the UI thread again after StoppingAsync gave up.
             Program.Report("StoppedWithinTimeout", s_stopRequested!.Elapsed < TimeSpan.FromSeconds(2.5) ? "yes" : $"no ({s_stopRequested.Elapsed})");
+        }
+
+        if (scenario == "send-queued-at-exit")
+        {
+            Program.Report("QueuedSendReturned", s_queuedSendReturned.Task.Wait(TimeSpan.FromSeconds(10)) ? "yes" : "hung");
         }
 
         if (scenario == "send")
