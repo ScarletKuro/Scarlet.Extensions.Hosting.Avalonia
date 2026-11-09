@@ -55,7 +55,7 @@ var value = await settings.GetValueAsync();
 - Not included: `AsyncReaderWriterLock`, `AsyncSemaphore`, `ReentrantSemaphore`, `AsyncManualResetEvent` (internal), the
   other async primitives, WPF `Dispatcher` support, and the hang *report* (`GetHangReport`; hang *detection*
   `JoinableTaskContext.OnHangDetected` is kept). See
-  [UPSTREAM.md](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/master/UPSTREAM.md) for the full list.
+  [UPSTREAM.md](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/main/UPSTREAM.md) for the full list.
 - `AwaitExtensions` has the same name and members as upstream's: in a project that also references
   `Microsoft.VisualStudio.Threading`, `await TaskScheduler.Default` is ambiguous when both namespaces are imported. Import
   only one of them in such files.

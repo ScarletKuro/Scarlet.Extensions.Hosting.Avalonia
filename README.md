@@ -1,23 +1,30 @@
 # Scarlet.Extensions.Hosting.Avalonia
+[![Nuget](https://img.shields.io/nuget/v/Scarlet.Extensions.Hosting.Avalonia?color=ff4081&logo=nuget)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia/)
+[![Nuget](https://img.shields.io/nuget/dt/Scarlet.Extensions.Hosting.Avalonia?color=ff4081&label=nuget%20downloads&logo=nuget)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia/)
+[![GitHub](https://img.shields.io/github/license/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia?color=594ae2&logo=github)](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/main/LICENSE)
+[![codecov](https://codecov.io/github/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/graph/badge.svg?token=YDLXFV5A6I)](https://codecov.io/github/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia)
 
-Microsoft.Extensions.Hosting (Generic Host) for [Avalonia](https://avaloniaui.net/) desktop applications on Windows, Linux
-and macOS. It runs the Avalonia UI inside the host, next to your hosted services, with an ordered startup and shutdown in
-both directions, and is **Native AOT compatible**: every package is `IsAotCompatible`, and CI publishes the scenario app,
-the tests and the samples with `PublishAot` on all three platforms.
+Unofficial implementation of Microsoft.Extensions.Hosting for [Avalonia](https://avaloniaui.net/) desktop applications on Windows, Linux and macOS. It runs the Avalonia UI inside the Generic Host, next to your hosted services, with an ordered startup and shutdown in both directions, and is **Native AOT compatible**: every package is `IsAotCompatible`, and CI publishes the scenario app, the tests and the samples with `PublishAot` on all three platforms.
+It follows the design of [Scarlet.Extensions.Hosting.DirectN](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.DirectN) and [Extensions.Hosting.Wpf](https://github.com/ScarletKuro/Microsoft.Extensions.Hosting.Wpf), without depending on them. An extension package provides thread switching between the UI thread and the thread pool (`JoinableTaskFactory`, `AsyncLazy<T>`).
 
-It follows the design of [Scarlet.Extensions.Hosting.DirectN](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.DirectN)
-and [Extensions.Hosting.Wpf](https://github.com/ScarletKuro/Microsoft.Extensions.Hosting.Wpf), without depending on them.
+### [Changelog](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/blob/main/CHANGELOG.md) | [Wiki](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki)
 
-### [Changelog](CHANGELOG.md)
+## NuGet Packages
 
-## NuGet packages
+| Name | Description | Latest version |
+| --- | --- | --- |
+| **Scarlet.Extensions.Hosting.Avalonia** | The main library, with **Microsoft.Extensions.Hosting** for Avalonia support. | [![NuGet](https://img.shields.io/nuget/vpre/Scarlet.Extensions.Hosting.Avalonia.svg)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia/) |
+| **Scarlet.Extensions.Hosting.Avalonia.Threading** | An extension enabling thread switching between the UI thread and ThreadPool threads via an AOT-compatible extract of **Microsoft.VisualStudio.Threading** (`JoinableTaskFactory`, `AsyncLazy<T>`). | [![NuGet](https://img.shields.io/nuget/vpre/Scarlet.Extensions.Hosting.Avalonia.Threading.svg)](https://www.nuget.org/packages/Scarlet.Extensions.Hosting.Avalonia.Threading/) |
 
-| Name | Description |
-| --- | --- |
-| **Scarlet.Extensions.Hosting.Avalonia** | The main library: runs an Avalonia application inside the Generic Host. |
-| **Scarlet.Extensions.Hosting.Avalonia.Threading** | Thread switching between the UI thread and thread pool threads, via an AOT-compatible extract of **Microsoft.VisualStudio.Threading** (`JoinableTaskFactory`, `AsyncLazy<T>`). |
+There is no tray icon package: Avalonia's own `TrayIcon` works inside the host.
 
-## Quick start
+## Quick Start
+
+### 1. Create `Program.cs`
+
+Use `Host.CreateApplicationBuilder` from `Microsoft.Extensions.Hosting`. Everything is registered on `builder.Services`
+before calling `Build()`, so the same calls work with any `IHostApplicationBuilder` and inside
+`IHostBuilder.ConfigureServices`.
 
 ```csharp
 using Avalonia;
@@ -32,22 +39,34 @@ internal static class Program
     {
         var builder = Host.CreateApplicationBuilder(args);
         builder.Services.AddAvalonia<App>(app => app.UsePlatformDetect().LogToTrace());
+        builder.Services.AddAvaloniaLifetime();
         builder.Services.AddAvaloniaComponent<MainWindowComponent>();
 
         using var host = builder.Build();
         host.RunAvalonia();
     }
 
-    // Keep for the XAML previewer, which still builds the app this way.
+    // Keep for the XAML previewer, which still builds the app this way (it needs App's parameterless constructor).
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace();
 }
 ```
 
 `AddAvalonia<App>` takes your `Application` (e.g. `App.axaml`), created with **constructor injection** on the UI thread,
-and the same `AppBuilder` configuration as Avalonia's `BuildAvaloniaApp()`. Windows and other UI objects are created in
-components:
+and the same `AppBuilder` configuration as Avalonia's `BuildAvaloniaApp()`.
+
+`host.RunAvalonia()` runs the UI on the calling thread and the host in the background; it works on every platform and is
+required on macOS, where Avalonia must run on the main thread. `host.Run()` works too on Windows and Linux, with the UI on a
+dedicated thread the host creates.
+
+### 2. Create the UI in a component
+
+Components are created with their dependencies from the container and initialized on the UI thread in registration order,
+after the application is set up and before the main loop starts. If they implement `IDisposable`, they're disposed on the
+UI thread, in reverse order, when the application exits. The container never disposes them.
 
 ```csharp
+using Scarlet.Extensions.Hosting.Avalonia;
+
 public sealed class MainWindowComponent(IAvaloniaContext context, MainWindowViewModel viewModel) : IAvaloniaComponent
 {
     public void InitializeComponent() =>
@@ -55,123 +74,48 @@ public sealed class MainWindowComponent(IAvaloniaContext context, MainWindowView
 }
 ```
 
-Components are created with their dependencies from the container and initialized on the UI thread in registration order,
-after the application is set up (its `OnFrameworkInitializationCompleted` has run) and before the main loop starts. If they
-implement `IDisposable`, they're disposed on the UI thread, in reverse order, when the application exits. The container never
-disposes them. Setting the lifetime's `MainWindow` in `App.OnFrameworkInitializationCompleted` works too, since the
-application itself is created with dependency injection.
+Setting the lifetime's `MainWindow` in `App.OnFrameworkInitializationCompleted` works too, since the application itself is
+created with dependency injection.
 
-## Two thread models
+### 3. Update `.csproj`
 
-| | `host.RunAvalonia()` | `host.Run()` |
-| --- | --- | --- |
-| UI thread | The calling thread (`Main`) | A dedicated thread the host creates |
-| Host | Runs in the background | Runs on the calling thread |
-| Platforms | Windows, Linux, macOS | Windows, Linux (macOS fails startup, pointing to `RunAvalonia`) |
+```xml
+<PropertyGroup>
+  <OutputType>WinExe</OutputType>
+  <TargetFramework>net10.0</TargetFramework>
+  <PublishAot>true</PublishAot>
+</PropertyGroup>
 
-Both share the same lifecycle. `RunAvalonia()` is the portable choice: macOS requires Avalonia on the process's main thread.
-On Windows, `Main` must be `[STAThread]` for `RunAvalonia()`. The dedicated thread of `host.Run()` is already STA and
-doesn't inherit the `ExecutionContext` (`AsyncLocal` values, logging scopes) of whoever started the host.
-
-## Lifecycle
-
-- **The UI starts after every hosted service has started**, the way ASP.NET Core starts serving requests. If any hosted
-  service fails to start, the UI is never created. Failures while creating it (the application, `OnStartup`, a component)
-  fail host startup instead of crashing the process.
-- **The application exiting stops the host** (last window closed, per `ShutdownMode`), and **the host stopping exits the
-  application**. The host's stop can't be vetoed by a window's `Closing` handler. Cleanup (`OnExit`, component disposal)
-  runs on the UI thread while every service still works, before any hosted service's `StopAsync`.
-- **Work queued for the UI before it runs** (through `IAvaloniaThread.Dispatcher`, `SynchronizationContext` or
-  `JoinableTaskFactory`) runs once the main loop runs, in the caller's `ExecutionContext`. Startup code that pumps a
-  nested dispatcher frame (e.g. `Dispatcher.PushFrame` in a component) runs it earlier, before `IsRunning` is true:
-  Avalonia's queue holds it, and a nested frame drains that queue. Work still queued when the
-  application exits, or for an application that never starts, is aborted: `InvokeAsync` callers get a cancelled task instead
-  of waiting forever.
-- **When the Windows session ends** (logoff, shutdown, restart), the application exits and the host stops, bounded by the
-  host's shutdown timeout, before Windows may end the process.
-- **Unhandled exceptions** on the UI thread are reported through `IAvaloniaThread.UnhandledException` (Avalonia's
-  `Dispatcher.UnhandledException`). Set `Handled` to keep running; otherwise they're logged as critical and terminate the
-  process, like WPF.
-
-Options cover what an `App` class would otherwise do:
-
-```csharp
-builder.Services.AddAvalonia<App>(app => app.UsePlatformDetect(), options =>
-{
-    options.ShutdownMode = ShutdownMode.OnExplicitShutdown;   // tray apps; default OnLastWindowClose
-    options.OnStartup = (services, context) => { /* UI thread, before the main loop */ };
-    options.OnExit = (services, context) => { /* UI thread, when the application exits */ };
-});
+<ItemGroup>
+  <PackageReference Include="Avalonia.Desktop" />
+  <PackageReference Include="Avalonia.Themes.Fluent" />
+  <PackageReference Include="Scarlet.Extensions.Hosting.Avalonia" />
+</ItemGroup>
 ```
 
-## Using the UI thread from services
-
-`IAvaloniaThread` gives services the UI thread:
-
-```csharp
-public sealed class StatusService(IAvaloniaThread ui, MainWindowViewModel viewModel)
-{
-    public Task ShowAsync(string text) => ui.Dispatcher.InvokeAsync(() => viewModel.Status = text).GetTask();
-}
-```
-
-`Dispatcher` is Avalonia's UI dispatcher, which the host claims for its UI thread before any hosted service starts.
-`SynchronizationContext` posts to it and never throws, while its `Send` throws until the application runs, rather than
-deadlocking. `HandleApplicationExit()` stops the host from any thread, e.g. from a tray icon's Exit item.
-
-Work can be queued at any time, but don't *wait* for it inside a hosted service's `StartAsync`: the UI only starts after
-every `StartAsync` has returned, so startup would hang. Use `BackgroundService.ExecuteAsync` or
-`IHostApplicationLifetime.ApplicationStarted`.
-
-**Don't use `Dispatcher.UIThread` before the host starts**, e.g. in `Main` or from another thread before `Run`/`RunAvalonia`.
-Avalonia makes the first thread that uses it its UI thread. Hosted service constructors are fine, since the host claims the UI
-thread first. If something took it, startup fails with "Avalonia's UI thread was already taken by another thread". Some
-Avalonia types use it in their static constructor, e.g. `TrayIcon`.
-
-For `await`-style switching (`await jtf.SwitchToMainThreadAsync()`) and `AsyncLazy<T>`, add
-**Scarlet.Extensions.Hosting.Avalonia.Threading** and call `builder.Services.AddThreadSwitching()`; see
-[docs/Threading.md](docs/Threading.md).
-
-## Tray icons
-
-Avalonia's own `TrayIcon` covers Windows, macOS, and Linux desktops with StatusNotifierItem support, so there is no tray
-package. Create it in a component and register it on the application; Avalonia disposes it when the application exits:
-
-```csharp
-public sealed class TrayIconComponent(IAvaloniaThread ui, IAvaloniaContext context) : IAvaloniaComponent
-{
-    public void InitializeComponent()
-    {
-        var exit = new NativeMenuItem("Exit");
-        exit.Click += (_, _) => ui.HandleApplicationExit();
-        TrayIcon.SetIcons(context.Application!, [new TrayIcon { Icon = LoadIcon(), Menu = new NativeMenu { Items = { exit } } }]);
-    }
-}
-```
-
-Use `ShutdownMode.OnExplicitShutdown` for an application that runs without windows. See `samples/HostingTrayIcon`.
-
-## Host lifetime
-
-`builder.Services.AddAvaloniaLifetime()` replaces the default `ConsoleLifetime` for windowed applications: no Ctrl+C
-handling or console hints, status messages logged instead, and a graceful host shutdown when the process exits. It's
-optional: with any lifetime, the host stops when the application exits.
-
-## Things to know
-
-- **One Avalonia application per process**, as Avalonia sets up once per process. Calling `AddAvalonia` twice throws.
-- **With `RunAvalonia()`, an unhandled UI exception** propagates out of `RunAvalonia()`, like WPF's `Application.Run`, and
-  the host is asked to stop. In a Native AOT build it can't cross the platform's native window procedure and fails fast
-  instead. Either way the process ends unless `Main` catches it.
-- **With `RunAvalonia()`, cleanup that outlives the host's shutdown timeout** delays its return: the host stops on time, but
-  `RunAvalonia()` runs on the UI thread itself and returns once `OnExit` and the components are done.
-- **A producer that never pauses** (invoking on the UI thread in a tight loop) can keep Avalonia's dispatcher from finishing
-  its shutdown, which aborts queued work one operation at a time.
+For the full guide including **components**, **application options**, **thread models**, **thread switching**, **tray icons**, and more, see the **[Wiki](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki)**.
 
 ## Samples
+1. [HostingMinimal](samples/HostingMinimal): A main window created by a component, and a `BackgroundService` updating it through **Threading** (`JoinableTaskFactory`).
+2. [HostingTrayIcon](samples/HostingTrayIcon): A windowless tray application (`ShutdownMode.OnExplicitShutdown`) using Avalonia's `TrayIcon`, with Exit stopping the host.
 
-- `samples/HostingMinimal`: a main window from a component, updated by a `BackgroundService` through `JoinableTaskFactory`.
-- `samples/HostingTrayIcon`: a tray-only application with Avalonia's `TrayIcon`.
+Both publish with `PublishAot` on Windows, Linux and macOS.
+
+## Documentation
+
+Full documentation is available in the **[Wiki](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki)**:
+
+- [Getting Started](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/3.-Getting-started-%F0%9F%9A%80) — Minimal setup guide
+- [Components](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/4.-Components-%F0%9F%A7%A9) — UI-thread objects with constructor injection
+- [Application Options](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/5.-Application-options-%E2%9A%99%EF%B8%8F) — Shutdown mode, startup and exit, unhandled exceptions
+- [Avalonia Lifetime](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/6.-Avalonia-Lifetime-%E2%8F%B1%EF%B8%8F) — The host lifetime for windowed applications
+- [Thread Models](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/7.-Thread-models-%F0%9F%A7%B5) — `host.RunAvalonia()` on the main thread vs `host.Run()` on a dedicated thread
+- [Threading](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/8.-Threading-extension-%F0%9F%94%80) — Switch between UI and background threads
+- [Tray Icons](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/9.-Tray-icons-%F0%9F%94%94) — Avalonia's `TrayIcon` inside the host
+- [Architecture & How It Works](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/10.-Architecture-&-How-it-works-%F0%9F%93%90) — Internal architecture and lifecycle
+- [API Reference](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/11.-API-Reference-%F0%9F%93%9A) — Complete API reference
+- [FAQ & Troubleshooting](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/13.-FAQ-&-Troubleshooting-%E2%9D%93) — Common questions and error solutions
+- [Migrating from Extensions.Hosting.Wpf and DirectN](https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/wiki/14.-Migrating-from-Extensions.Hosting.Wpf-and-DirectN-%F0%9F%94%84) — API mapping and a before/after example
 
 ## Building and testing
 
@@ -183,3 +127,9 @@ dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release
 The scenario tests run a real host and Avalonia application in a separate process per scenario (the ScenarioApp), with the
 UI on a dedicated thread and on the main thread. On Linux they need a display (`xvfb-run`). CI also publishes the
 ScenarioApp with Native AOT and reruns every scenario against it (`SCARLET_SCENARIO_APP`).
+
+## License
+
+MIT. `Scarlet.Extensions.Hosting.Avalonia.Threading` contains code from
+[microsoft/vs-threading](https://github.com/microsoft/vs-threading) (MIT); see [LICENSE-3RD-PARTY.txt](LICENSE-3RD-PARTY.txt)
+and [UPSTREAM.md](UPSTREAM.md).

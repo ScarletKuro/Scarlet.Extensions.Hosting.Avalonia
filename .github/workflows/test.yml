@@ -47,11 +47,40 @@ jobs:
         run: dotnet build Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-restore
 
       # Each scenario runs a real host and Avalonia application in its own process, with the UI on a dedicated thread and on
-      # the main thread (main thread only on macOS, where Avalonia requires it). GC reachability tests (GC=true) are skipped
-      # here because the JIT can keep objects alive longer than they expect; they run on Native AOT below.
+      # the main thread (main thread only on macOS, where Avalonia requires it). Microsoft Code Coverage also collects from
+      # child processes, so the ScenarioApp runs count. GC reachability tests (GC=true) are skipped here because the JIT and
+      # instrumentation can keep objects alive longer than they expect; they run on Native AOT below.
       - name: Test
         shell: bash
-        run: $RUN_WITH_DISPLAY dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-build --filter-not-trait "GC=true"
+        run: >
+          $RUN_WITH_DISPLAY dotnet test --solution Scarlet.Extensions.Hosting.Avalonia.slnx -c Release --no-build
+          --coverage --coverage-output-format cobertura --results-directory ./TestResults
+          --filter-not-trait "GC=true"
+
+      # Microsoft Code Coverage writes one Cobertura report per test app, named with a bare GUID. Each is renamed to contain
+      # "coverage" because the Codecov CLI discovers reports by filename pattern and does not recognise "*.cobertura.xml".
+      - name: Collect coverage reports
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p coverage
+          i=0
+          for f in TestResults/*.cobertura.xml; do
+            [ -e "$f" ] || continue
+            i=$((i + 1))
+            cp "$f" "coverage/coverage-$i.cobertura.xml"
+          done
+          ls -l coverage
+
+      # Codecov merges the three platforms' uploads; the flag shows each platform's own coverage.
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v7
+        with:
+          directory: ./coverage
+          flags: ${{ runner.os }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
 
       # xunit.v3.aot test project, published as a native executable.
       - name: Test thread switching on Native AOT
