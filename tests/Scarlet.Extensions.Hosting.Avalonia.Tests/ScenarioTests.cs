@@ -368,7 +368,10 @@ public class ScenarioTests
         // The shutdown timeout is 10 s: waiting for the UI thread would take at least that.
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(8), $"Took {watch.Elapsed}.{Environment.NewLine}{result.Describe()}");
         result.AssertExitCode(5);
-        result.AssertEvents(
+
+        // Main can still return from Run (and report it) before Environment.Exit terminates the process.
+        result.AssertEventsIgnoringLast(
+            "HostStopped|not-running",
             "OnStartup|ui:app",
             "EnvironmentExit|ui",
             "OtherStopping|other",
@@ -480,6 +483,38 @@ public class ScenarioTests
             "OnExit|ui",
             "ShuttingDownComponentDispose|ui",
             "ComponentDispose|ui",
+            "HostStopped|not-running");
+    }
+
+    [Theory]
+    [InlineData("shutdown-in-constructor", false)]
+    [InlineData("shutdown-in-constructor", true)]
+    [InlineData("shutdown-in-factory", false)]
+    [InlineData("shutdown-in-factory", true)]
+    public void AComponentWhoseConstructionShutsDownIsDisposedNeverInitializedAndTheHostStops(string scenario, bool mainThread)
+    {
+        Assert.SkipWhen(OperatingSystem.IsMacOS() && !mainThread, "Uses a dedicated UI thread, which macOS doesn't allow.");
+        var result = ScenarioRunner.Run(scenario, mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "OnStartup|ui:app",
+            "ConstructorShutdown|ui",
+            "OnExit|ui",
+            "ShutdownInConstructorDispose|ui",
+            "HostStopped|not-running");
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void ShuttingDownWhileTheApplicationIsSetUpStillRunsOnExitAndStopsTheHost(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("shutdown-in-app-init", mainThread);
+
+        result.AssertExitCode(0);
+        result.AssertEvents(
+            "AppInitShutdown|ui",
+            "OnExit|ui",
             "HostStopped|not-running");
     }
 

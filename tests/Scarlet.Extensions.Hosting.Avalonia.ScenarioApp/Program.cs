@@ -175,6 +175,13 @@ internal sealed class ScenarioApplication : Application
             Program.Report("MainWindowSet", Program.Where());
         }
 
+        if (Program.Scenario == "shutdown-in-app-init" && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+        {
+            // Exits while Avalonia is still setting the application up.
+            Program.Report("AppInitShutdown", Program.Where());
+            lifetime.Shutdown();
+        }
+
         base.OnFrameworkInitializationCompleted();
     }
 }

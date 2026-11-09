@@ -111,5 +111,14 @@ internal sealed record ScenarioResult(string Scenario, int ExitCode, IReadOnlyLi
         Assert.True(Events.SequenceEqual(expected), $"Expected events:{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}{Environment.NewLine}{Describe()}");
     }
 
+    /// <summary>
+    /// Like <see cref="AssertEvents"/>, but the last event may also be <paramref name="optionalLast"/>.
+    /// </summary>
+    public void AssertEventsIgnoringLast(string optionalLast, params string[] expected)
+    {
+        var events = Events.Count > 0 && Events[^1] == optionalLast ? Events.Take(Events.Count - 1) : Events;
+        Assert.True(events.SequenceEqual(expected), $"Expected events (optionally followed by {optionalLast}):{Environment.NewLine}{string.Join(Environment.NewLine, expected)}{Environment.NewLine}{Environment.NewLine}{Describe()}");
+    }
+
     public void AssertExitCode(int expected) => Assert.True(ExitCode == expected, Describe());
 }

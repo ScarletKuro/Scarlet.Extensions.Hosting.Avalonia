@@ -601,6 +601,12 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     private void OnLifetimeExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
         _exiting = true;
+
+        // The application can exit while it is still being set up (e.g. the lifetime's Shutdown from the application's
+        // OnFrameworkInitializationCompleted), before setup returned it: OnExit still gets it.
+        _context.Application ??= global::Avalonia.Application.Current;
+        _context.Lifetime ??= _lifetime;
+
         var sessionEnding = _context.IsRunning && SessionEnd.IsEnding();
 
         // The main loop is ending: Avalonia raises Exit from inside it. From now on Send is rejected rather than queued.
@@ -711,6 +717,13 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             var component = factory();
             // Track it before initializing, so it is disposed even if InitializeComponent throws.
             components.Add(component);
+
+            // Its constructor (or factory) exited the application: it was disposed by being tracked after cleanup.
+            if (_exiting)
+            {
+                return;
+            }
+
             component.InitializeComponent();
         }
     }

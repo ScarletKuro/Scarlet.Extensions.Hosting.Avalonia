@@ -398,6 +398,24 @@ internal static unsafe partial class Scenarios
                 services.AddAvaloniaComponent<NeverCreatedComponent>();
                 return true;
 
+            case "shutdown-in-constructor":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ShutdownInConstructorComponent>();
+                services.AddAvaloniaComponent<NeverCreatedComponent>();
+                return true;
+
+            case "shutdown-in-factory":
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent(sp => new ShutdownInConstructorComponent(sp.GetRequiredService<IAvaloniaContext>()));
+                services.AddAvaloniaComponent<NeverCreatedComponent>();
+                return true;
+
+            case "shutdown-in-app-init":
+                // ScenarioApplication.OnFrameworkInitializationCompleted calls the lifetime's Shutdown for this scenario.
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<NeverCreatedComponent>();
+                return true;
+
             case "unhandled-crash-slow-stop":
                 AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
                 services.AddHostedService<SlowStopService>();

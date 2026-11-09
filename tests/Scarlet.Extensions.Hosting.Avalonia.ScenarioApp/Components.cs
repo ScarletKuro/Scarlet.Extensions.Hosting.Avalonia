@@ -70,6 +70,22 @@ internal sealed class ShuttingDownComponent(IAvaloniaContext context) : IAvaloni
 }
 
 /// <summary>
+/// Exits the application from its constructor (or the factory that creates it): it must be disposed, never initialized.
+/// </summary>
+internal sealed class ShutdownInConstructorComponent : IAvaloniaComponent, IDisposable
+{
+    public ShutdownInConstructorComponent(IAvaloniaContext context)
+    {
+        Program.Report("ConstructorShutdown", Program.Where());
+        context.Lifetime!.Shutdown();
+    }
+
+    public void InitializeComponent() => Program.Report("ShutdownInConstructorInit", Program.Where());
+
+    public void Dispose() => Program.Report("ShutdownInConstructorDispose", Program.Where());
+}
+
+/// <summary>
 /// Must never be created: it comes after a component that exits the application.
 /// </summary>
 internal sealed class NeverCreatedComponent : IAvaloniaComponent, IDisposable
