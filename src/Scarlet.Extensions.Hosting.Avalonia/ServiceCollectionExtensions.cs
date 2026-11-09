@@ -40,7 +40,6 @@ public static class ServiceCollectionExtensions
         AvaloniaThread.RegisterProcessExitHandler();
         services.AddOptions<AvaloniaOptions>();
         services.AddSingleton(new AvaloniaApplicationDefinition(
-            typeof(TApplication),
             provider => configureAppBuilder(AppBuilder.Configure(() => ActivatorUtilities.CreateInstance<TApplication>(provider)))));
         services.TryAddSingleton<AvaloniaContext>();
         services.TryAddSingleton<AvaloniaThread>();
