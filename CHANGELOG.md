@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-09
+
 First release: Microsoft.Extensions.Hosting for Avalonia desktop applications on Windows, Linux and macOS, Native AOT
 compatible (`net10.0`, Avalonia 12).
 
@@ -21,3 +23,6 @@ compatible (`net10.0`, Avalonia 12).
   than left pending. The end of the Windows session stops the application and the host before Windows may end the process.
 - `Scarlet.Extensions.Hosting.Avalonia.Threading`: `AddThreadSwitching`, with a trimmed, Native AOT compatible extract of
   Microsoft.VisualStudio.Threading 17.12.19 (`JoinableTaskFactory`, `AsyncLazy<T>`, `await TaskScheduler.Default`).
+
+[Unreleased]: https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/ScarletKuro/Scarlet.Extensions.Hosting.Avalonia/releases/tag/1.0.0
