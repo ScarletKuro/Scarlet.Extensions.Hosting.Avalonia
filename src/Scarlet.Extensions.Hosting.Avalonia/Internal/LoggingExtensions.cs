@@ -7,8 +7,8 @@ internal static partial class LoggingExtensions
     [LoggerMessage(0, LogLevel.Information, "Starting Avalonia application")]
     internal static partial void AvaloniaStarting(this ILogger logger);
 
-    [LoggerMessage(1, LogLevel.Information, "Avalonia UI thread started")]
-    internal static partial void AvaloniaThreadStarted(this ILogger logger);
+    [LoggerMessage(1, LogLevel.Information, "Avalonia application is running on the UI thread")]
+    internal static partial void AvaloniaRunning(this ILogger logger);
 
     [LoggerMessage(2, LogLevel.Information, "Stopping Avalonia application due to host shutdown")]
     internal static partial void AvaloniaStopping(this ILogger logger);

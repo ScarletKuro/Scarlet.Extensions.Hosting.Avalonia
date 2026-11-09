@@ -9,8 +9,9 @@ public sealed class AvaloniaOptions
 {
     /// <summary>
     /// Gets or sets when the Avalonia application exits on its own (which then stops the host). Default:
-    /// <see cref="ShutdownMode.OnLastWindowClose"/>. Use <see cref="ShutdownMode.OnExplicitShutdown"/> for tray applications
-    /// that run without windows.
+    /// <see cref="ShutdownMode.OnLastWindowClose"/>. Use <see cref="ShutdownMode.OnMainWindowClose"/> to exit when the
+    /// lifetime's <c>MainWindow</c> closes, and <see cref="ShutdownMode.OnExplicitShutdown"/> for tray applications that run
+    /// without windows.
     /// </summary>
     public ShutdownMode ShutdownMode { get; set; } = ShutdownMode.OnLastWindowClose;
 

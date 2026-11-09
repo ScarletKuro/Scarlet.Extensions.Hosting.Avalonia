@@ -27,7 +27,8 @@ public interface IAvaloniaThread
 
     /// <summary>
     /// Gets a <see cref="SynchronizationContext"/> that runs work on the UI thread. <c>Post</c> works at any time and never
-    /// throws (work posted after the application has ended is dropped). <c>Send</c> throws before the application runs,
+    /// throws: work posted after the application has ended is dropped, and so is work posted when the host couldn't take
+    /// Avalonia's UI thread (startup then fails, and <see cref="Dispatcher"/> throws). <c>Send</c> throws before the application runs,
     /// instead of blocking: a Send from a hosted service's StartAsync would otherwise deadlock.
     /// </summary>
     SynchronizationContext SynchronizationContext { get; }

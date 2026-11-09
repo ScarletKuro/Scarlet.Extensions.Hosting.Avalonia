@@ -28,13 +28,13 @@ internal sealed class AvaloniaHostedService(ILogger<AvaloniaHostedService> logge
 
         logger.AvaloniaStarting();
         thread.Start();
-        logger.AvaloniaThreadStarted();
 
         try
         {
             // Wait until the application is set up and its main loop runs, so failures until then fail host startup instead of
             // crashing the process.
             await thread.Started.WaitAsync(cancellationToken).ConfigureAwait(false);
+            logger.AvaloniaRunning();
         }
         catch
         {

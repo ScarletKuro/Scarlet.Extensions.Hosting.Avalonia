@@ -9,8 +9,9 @@ namespace Scarlet.Extensions.Hosting.Avalonia;
 /// <summary>
 /// <see cref="IHostLifetime"/> for a windowed Avalonia application, used instead of the default ConsoleLifetime: it does not
 /// handle Ctrl+C or print console shutdown hints, logs status messages (see <see cref="AvaloniaLifetimeOptions"/>), and waits for
-/// the host to shut down gracefully when the process exits. Stopping the host when the Avalonia application exits does not
-/// depend on it.
+/// the host to shut down gracefully when the process exits: up to <see cref="HostOptions.ShutdownTimeout"/> for its stop, then,
+/// after logging that it is still waiting, up to <see cref="HostOptions.ShutdownTimeout"/> more for its disposal. Stopping the
+/// host when the Avalonia application exits does not depend on it.
 /// </summary>
 public class AvaloniaLifetime : IHostLifetime, IDisposable
 {
