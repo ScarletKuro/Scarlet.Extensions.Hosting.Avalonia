@@ -143,7 +143,7 @@ public class ScenarioTests
 
         Assert.Contains("Throwing|ui", result.Events);
         Assert.DoesNotContain(result.Events, e => e.StartsWith("HostStopped", StringComparison.Ordinal));
-        Assert.Contains(result.Output, line => line.Contains("Unhandled exception on the Avalonia UI thread", StringComparison.Ordinal));
+        Assert.Contains(result.Output, line => line.StartsWith("LOG|Critical|", StringComparison.Ordinal) && line.Contains("Unhandled exception on the Avalonia UI thread", StringComparison.Ordinal));
         AssertTerminated(result, mainThread, "HostFailed|InvalidOperationException: unhandled posted failure");
     }
 

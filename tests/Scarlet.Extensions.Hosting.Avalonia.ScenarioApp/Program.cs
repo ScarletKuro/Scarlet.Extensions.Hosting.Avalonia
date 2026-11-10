@@ -41,6 +41,10 @@ internal static class Program
 
         var builder = Host.CreateApplicationBuilder([.. args.Skip(1).Where(a => a != "--main-thread")]);
         builder.Logging.SetMinimumLevel(LogLevel.Information);
+
+        // The console logger writes on a background thread, so its last lines can be lost when an unhandled exception ends the
+        // process right after them: warnings and above are also written here, before the log call returns.
+        builder.Logging.AddProvider(new SynchronousLoggerProvider());
         builder.Services.AddAvaloniaLifetime();
 
         if (!Scenarios.TryConfigure(Scenario, builder.Services))
@@ -128,11 +132,13 @@ internal static class Program
 
     public static string Where() => System.Threading.Thread.CurrentThread == s_uiThread ? "ui" : "other";
 
-    public static void Report(string name, string? value = null)
+    public static void Report(string name, string? value = null) => WriteLine($"EVT|{name}|{value}");
+
+    public static void WriteLine(string line)
     {
         lock (ReportLock)
         {
-            Console.Out.WriteLine($"EVT|{name}|{value}");
+            Console.Out.WriteLine(line);
             Console.Out.Flush();
         }
     }
@@ -150,6 +156,34 @@ internal static class Program
             Name = "Watchdog",
         };
         watchdog.Start();
+    }
+}
+
+/// <summary>
+/// Writes warnings and above as <c>LOG|level|category|message|exception message</c> lines, synchronously.
+/// </summary>
+internal sealed class SynchronousLoggerProvider : ILoggerProvider
+{
+    public ILogger CreateLogger(string categoryName) => new Logger(categoryName);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class Logger(string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+            {
+                Program.WriteLine($"LOG|{logLevel}|{category}|{formatter(state, exception)}|{exception?.Message}");
+            }
+        }
     }
 }
 
