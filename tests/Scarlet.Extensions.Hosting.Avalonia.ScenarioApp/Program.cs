@@ -116,7 +116,9 @@ internal static class Program
 
         Report("HostStopped", context.IsRunning ? "running" : "not-running");
         Scenarios.AfterRun(Scenario);
-        return 0;
+
+        // As a void Main would: Main can return while Environment.Exit runs on another thread, and must not replace its code.
+        return Environment.ExitCode;
     }
 
     /// <summary>
