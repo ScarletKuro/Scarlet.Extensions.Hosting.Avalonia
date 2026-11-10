@@ -20,6 +20,7 @@ internal static unsafe partial class Scenarios
     private static volatile bool s_stopFlood;
     private static readonly TaskCompletionSource s_queryEndSessionReported = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private static readonly TaskCompletionSource s_queuedSendReturned = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static IAvaloniaThread? s_capturedThread;
 
     public static CancellationTokenSource StartupCancellation { get; } = new();
 
@@ -505,6 +506,20 @@ internal static unsafe partial class Scenarios
                 services.AddAvaloniaComponent(sp => new MainWindowFailingComponent(sp.GetRequiredService<IAvaloniaContext>()));
                 return true;
 
+            case "claim-throws":
+                // Avalonia failing to create its dispatcher on the UI thread: must fail startup, not crash the process there.
+                AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
+                services.AddAvaloniaComponent<ProbeComponent>();
+
+                // Kept to use after the failed start, when the host has disposed its services.
+                services.AddHostedService(sp =>
+                {
+                    s_capturedThread = sp.GetRequiredService<IAvaloniaThread>();
+                    return new OnStartedService(sp.GetRequiredService<IHostApplicationLifetime>(), sp, static _ => { });
+                });
+                Scarlet.Extensions.Hosting.Avalonia.Internal.DispatcherClaim.BeforeClaimForTests = static () => throw new TypeInitializationException("Avalonia.Threading.Dispatcher", new InvalidOperationException("claim failure"));
+                return true;
+
             case "canceled-before-ui":
                 AddAvalonia(services, ShutdownMode.OnExplicitShutdown);
                 services.AddAvaloniaComponent<ProbeComponent>();
@@ -584,6 +599,22 @@ internal static unsafe partial class Scenarios
 
     public static void AfterFailure(string scenario)
     {
+        if (scenario == "claim-throws")
+        {
+            // Without a claimed dispatcher: Dispatcher throws the claim's error, posting still never throws.
+            var thread = s_capturedThread!;
+            thread.SynchronizationContext.Post(_ => Program.Report("RanWithoutDispatcher"), null);
+            try
+            {
+                _ = thread.Dispatcher;
+                Program.Report("Dispatcher", "returned");
+            }
+            catch (InvalidOperationException exception)
+            {
+                Program.Report("Dispatcher", exception.InnerException is InvalidOperationException { InnerException: TypeInitializationException } ? "claim-error" : exception.ToString());
+            }
+        }
+
         if (scenario == "prestart-abandoned")
         {
             // Queued before the host failed to start: must end cancelled, not stay pending forever.

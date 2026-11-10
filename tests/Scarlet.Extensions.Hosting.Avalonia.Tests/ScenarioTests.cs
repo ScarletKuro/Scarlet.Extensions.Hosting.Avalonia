@@ -615,6 +615,18 @@ public class ScenarioTests
             "HostFailed|InvalidOperationException: main window failure");
     }
 
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void AvaloniaFailingToCreateItsDispatcherFailsHostStartupInsteadOfCrashing(bool mainThread)
+    {
+        var result = ScenarioRunner.Run("claim-throws", mainThread);
+
+        result.AssertExitCode(ScenarioRunner.HostFailedExitCode);
+        result.AssertEvents(
+            "HostFailed|InvalidOperationException: Avalonia's UI dispatcher couldn't be created: The type initializer for 'Avalonia.Threading.Dispatcher' threw an exception.",
+            "Dispatcher|claim-error");
+    }
+
     [Fact]
     public void StartupCancelledBeforeTheUiStartsNeverCreatesIt()
     {

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,8 +58,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     // The UI thread never runs (a dedicated thread on macOS, where Avalonia requires the main thread).
     private readonly bool _neverRuns;
 
-    private readonly Dispatcher? _dispatcher;
-    private readonly Exception? _claimError;
+    private readonly DispatcherClaim _claim;
 
     private volatile bool _disposed;
     private volatile bool _stopRequested;
@@ -92,28 +92,27 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
         {
             UsesCurrentThread = true;
             MainThread = Thread.CurrentThread;
-            (_dispatcher, _claimError) = ClaimDispatcher();
+            _claim = DispatcherClaim.ForCurrentThread();
         }
         else if (OperatingSystem.IsMacOS())
         {
             MainThread = new Thread(static () => { });
             _neverRuns = true;
-            _claimError = new PlatformNotSupportedException(
+            _claim = new ClaimFailed(new PlatformNotSupportedException(
                 "On macOS, Avalonia runs on the process's main thread: start the host with host.RunAvalonia() from Main " +
-                "(marked [STAThread]) instead of host.Run() or host.RunAsync().");
+                "(marked [STAThread]) instead of host.Run() or host.RunAsync()."));
         }
         else
         {
             // Started now, without the creating thread's ExecutionContext: AsyncLocal values, logging scopes and Activity.Current of
             // whoever resolves the host's services would otherwise leak into every UI callback for the application's whole lifetime.
             // Claimed before this constructor returns, so no code running after it can take Avalonia's UI thread.
-            using var claimed = new ManualResetEventSlim(false);
-            Dispatcher? dispatcher = null;
-            Exception? claimError = null;
+            using var claimTaken = new ManualResetEventSlim(false);
+            DispatcherClaim? claim = null;
             MainThread = new Thread(() =>
             {
-                (dispatcher, claimError) = ClaimDispatcher();
-                claimed.Set();
+                claim = DispatcherClaim.ForCurrentThread();
+                claimTaken.Set();
                 RunUiThread(WaitForGate());
             })
             {
@@ -127,9 +126,10 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             }
 
             MainThread.UnsafeStart();
-            claimed.Wait();
-            _dispatcher = dispatcher;
-            _claimError = claimError;
+            claimTaken.Wait();
+
+            // ForCurrentThread never throws, so the thread always set it before signalling.
+            _claim = claim ?? throw new UnreachableException("The Avalonia UI thread signalled without a dispatcher claim.");
         }
     }
 
@@ -137,7 +137,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
 
     public Thread MainThread { get; }
 
-    public Dispatcher Dispatcher => _dispatcher ?? throw new InvalidOperationException(_claimError!.Message, _claimError);
+    public Dispatcher Dispatcher => _claim.GetDispatcher();
 
     public SynchronizationContext SynchronizationContext => _synchronizationContext;
 
@@ -187,32 +187,14 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     }
 
     /// <summary>
-    /// Takes Avalonia's UI dispatcher for the calling thread. Avalonia's UI thread is the thread on which a dispatcher is first
-    /// created, and reading <see cref="Dispatcher.UIThread"/> creates one on the reading thread.
-    /// </summary>
-    private static (Dispatcher? Dispatcher, Exception? Error) ClaimDispatcher()
-    {
-        var dispatcher = Dispatcher.UIThread;
-        if (dispatcher.CheckAccess())
-        {
-            return (dispatcher, null);
-        }
-
-        return (null, new InvalidOperationException(
-            "Avalonia's UI thread was already taken by another thread: Dispatcher.UIThread (or a type that uses it, such as TrayIcon) " +
-            "was used before the host started. Avalonia makes the first thread that uses it its UI thread. Don't use it before the " +
-            "host has started, or run the UI on the main thread with host.RunAvalonia()."));
-    }
-
-    /// <summary>
     /// Starts the application on the UI thread. Called by <see cref="AvaloniaHostedService"/> at the right point of the host
     /// lifecycle.
     /// </summary>
     internal void Start()
     {
-        if (_neverRuns)
+        if (_neverRuns && _claim is ClaimFailed failed)
         {
-            _started.TrySetException(_claimError!);
+            _started.TrySetException(failed.Error);
             return;
         }
 
@@ -291,7 +273,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     /// <summary>
     /// Posts to the UI thread through Avalonia's dispatcher. Never throws: work posted after the application has ended is dropped.
     /// </summary>
-    private void Post(SendOrPostCallback callback, object? state) => _dispatcher?.Post(callback, state);
+    private void Post(SendOrPostCallback callback, object? state) => (_claim as Claimed)?.Dispatcher.Post(callback, state);
 
     /// <summary>
     /// Exits the running application. Used by the host's stop (<see cref="AvaloniaHostedService"/>).
@@ -299,18 +281,13 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     /// <returns><see langword="false"/> when the application wasn't running.</returns>
     internal bool RequestExit()
     {
-        Dispatcher? dispatcher;
+        bool running;
         lock (_stateLock)
         {
-            if (!_context.IsRunning)
-            {
-                return false;
-            }
-
-            dispatcher = _dispatcher;
+            running = _context.IsRunning;
         }
 
-        if (dispatcher is null)
+        if (!running || _claim is not Claimed { Dispatcher: var dispatcher })
         {
             return false;
         }
@@ -411,7 +388,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
         // the app ends the process from the main thread). If that thread is the UI thread, its loop never runs again: waiting for
         // it to end would only delay the exit by the shutdown timeout. Whether it still runs is only visible from here by asking
         // it. Otherwise the host's usual stop runs, cleanup included. Only while a host could still wait for it.
-        if (_disposed || _completed.Task.IsCompleted || _dispatcher is not { } dispatcher || !_context.IsRunning)
+        if (_disposed || _completed.Task.IsCompleted || _claim is not Claimed { Dispatcher: var dispatcher } || !_context.IsRunning)
         {
             return;
         }
@@ -441,15 +418,14 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
         Volatile.Write(ref s_running, this);
         try
         {
-            if (_claimError is { } claimError)
+            switch (_claim)
             {
-                _started.TrySetException(claimError);
-                return;
-            }
-
-            if (run)
-            {
-                RunApplication(_dispatcher!);
+                case ClaimFailed failed:
+                    _started.TrySetException(failed.Error);
+                    break;
+                case Claimed claimed when run:
+                    RunApplication(claimed.Dispatcher);
+                    break;
             }
         }
         finally
@@ -468,7 +444,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
 
     private void ShutDownDispatcher()
     {
-        if (_dispatcher is not { } dispatcher || !dispatcher.CheckAccess())
+        if (_claim is not Claimed { Dispatcher: var dispatcher } || !dispatcher.CheckAccess())
         {
             return;
         }
@@ -669,7 +645,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     /// </summary>
     private void WaitForHostStopped()
     {
-        if (_serviceProvider.GetService<IHostApplicationLifetime>() is not { } lifetime || _dispatcher is not { } dispatcher)
+        if (_serviceProvider.GetService<IHostApplicationLifetime>() is not { } lifetime || _claim is not Claimed { Dispatcher: var dispatcher })
         {
             return;
         }
@@ -766,7 +742,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
                 return;
             }
 
-            if (!thread.Context.IsRunning || thread._dispatcher is not { } dispatcher)
+            if (!thread.Context.IsRunning || thread._claim is not Claimed { Dispatcher: var dispatcher })
             {
                 throw new InvalidOperationException(
                     "Send is only available while the Avalonia application runs. Before it has started use Post, Dispatcher.InvokeAsync " +
