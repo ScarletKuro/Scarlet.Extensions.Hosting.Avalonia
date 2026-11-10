@@ -16,15 +16,18 @@ public static class HostExtensions
     /// </summary>
     /// <param name="host">The <see cref="IHost"/> to run. It must not be started yet, nor its <see cref="IAvaloniaThread"/>
     /// resolved.</param>
-    /// <exception cref="InvalidOperationException">On Windows, the calling thread is not an STA thread (mark <c>Main</c> with
-    /// <c>[STAThread]</c>); or the UI thread was already created as a dedicated thread.</exception>
+    /// <exception cref="InvalidOperationException">On Windows, the calling thread is not an STA thread (mark a synchronous
+    /// <c>Main</c> with <c>[STAThread]</c>; an async <c>Main</c> is never STA); or the UI thread was already created as a
+    /// dedicated thread.</exception>
     public static void RunAvalonia(this IHost host)
     {
         ArgumentNullException.ThrowIfNull(host);
 
         if (OperatingSystem.IsWindows() && Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         {
-            throw new InvalidOperationException("On Windows, RunAvalonia must be called on an STA thread: mark Main with [STAThread].");
+            throw new InvalidOperationException(
+                "On Windows, RunAvalonia must be called on an STA thread: mark a synchronous Main with [STAThread]. An async Main is " +
+                "never STA (the attribute is ignored there): use a synchronous Main, or await host.RunAsync() for a dedicated UI thread.");
         }
 
         // The calling thread becomes the UI thread and claims Avalonia's UI dispatcher before anything else runs.

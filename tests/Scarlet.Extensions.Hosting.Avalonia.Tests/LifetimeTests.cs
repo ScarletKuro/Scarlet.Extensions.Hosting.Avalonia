@@ -109,6 +109,7 @@ public class LifetimeTests
 
         var exception = Assert.IsType<InvalidOperationException>(error);
         Assert.Contains("STA thread", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("An async Main is never STA", exception.Message, StringComparison.Ordinal);
     }
 
     private static AvaloniaLifetime CreateLifetime(IHostApplicationLifetime applicationLifetime, TimeSpan shutdownTimeout, ILoggerFactory loggerFactory) =>
