@@ -630,6 +630,7 @@ public class ScenarioTests
     [Fact]
     public void StartupCancelledBeforeTheUiStartsNeverCreatesIt()
     {
+        Assert.SkipWhen(OperatingSystem.IsMacOS(), "Uses a dedicated UI thread, which macOS doesn't allow.");
         var result = ScenarioRunner.Run("canceled-before-ui");
 
         result.AssertExitCode(0);
