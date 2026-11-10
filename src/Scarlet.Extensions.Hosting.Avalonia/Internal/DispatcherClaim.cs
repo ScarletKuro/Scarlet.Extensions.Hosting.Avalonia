@@ -38,7 +38,8 @@ internal abstract class DispatcherClaim
         }
         catch (Exception exception)
         {
-            return new ClaimFailed(new InvalidOperationException($"Avalonia's UI dispatcher couldn't be created: {exception.Message}", exception));
+            // The root cause: Avalonia's own failures arrive wrapped, e.g. in a TypeInitializationException.
+            return new ClaimFailed(new InvalidOperationException($"Avalonia's UI dispatcher couldn't be created: {exception.GetBaseException().Message}", exception));
         }
 #pragma warning restore CA1031
 

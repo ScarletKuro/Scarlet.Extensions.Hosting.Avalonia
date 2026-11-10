@@ -248,6 +248,20 @@ internal sealed class MainWindowFailingComponent(IAvaloniaContext context) : IAv
 }
 
 /// <summary>
+/// Reports when it starts: must not, when host startup fails before hosted services start.
+/// </summary>
+internal sealed class ReportingStartService : IHostedService
+{
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        Program.Report("OtherServiceStarted", Program.Where());
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+/// <summary>
 /// Fails to stop.
 /// </summary>
 internal sealed class FailingStopService : IHostedService

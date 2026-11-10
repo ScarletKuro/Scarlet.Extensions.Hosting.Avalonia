@@ -623,7 +623,7 @@ public class ScenarioTests
 
         result.AssertExitCode(ScenarioRunner.HostFailedExitCode);
         result.AssertEvents(
-            "HostFailed|InvalidOperationException: Avalonia's UI dispatcher couldn't be created: The type initializer for 'Avalonia.Threading.Dispatcher' threw an exception.",
+            "HostFailed|InvalidOperationException: Avalonia's UI dispatcher couldn't be created: claim failure",
             "Dispatcher|claim-error");
     }
 

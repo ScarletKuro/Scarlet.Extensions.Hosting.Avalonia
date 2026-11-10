@@ -515,7 +515,7 @@ internal static unsafe partial class Scenarios
                 services.AddHostedService(sp =>
                 {
                     s_capturedThread = sp.GetRequiredService<IAvaloniaThread>();
-                    return new OnStartedService(sp.GetRequiredService<IHostApplicationLifetime>(), sp, static _ => { });
+                    return new ReportingStartService();
                 });
                 Scarlet.Extensions.Hosting.Avalonia.Internal.DispatcherClaim.BeforeClaimForTests = static () => throw new TypeInitializationException("Avalonia.Threading.Dispatcher", new InvalidOperationException("claim failure"));
                 return true;

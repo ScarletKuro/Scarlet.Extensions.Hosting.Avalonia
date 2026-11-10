@@ -15,7 +15,9 @@ namespace Scarlet.Extensions.Hosting.Avalonia.Internal;
 /// </remarks>
 internal sealed class AvaloniaHostedService(ILogger<AvaloniaHostedService> logger, AvaloniaThread thread) : IHostedLifecycleService
 {
-    public Task StartingAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    // The UI thread can't run (its dispatcher couldn't be claimed): fail host startup before any hosted service starts.
+    public Task StartingAsync(CancellationToken cancellationToken) =>
+        thread.ClaimError is { } error ? Task.FromException(error) : Task.CompletedTask;
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 

@@ -111,8 +111,15 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             DispatcherClaim? claim = null;
             MainThread = new Thread(() =>
             {
-                claim = DispatcherClaim.ForCurrentThread();
-                claimTaken.Set();
+                try
+                {
+                    claim = DispatcherClaim.ForCurrentThread();
+                }
+                finally
+                {
+                    claimTaken.Set();
+                }
+
                 RunUiThread(WaitForGate());
             })
             {
@@ -128,8 +135,7 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
             MainThread.UnsafeStart();
             claimTaken.Wait();
 
-            // ForCurrentThread never throws, so the thread always set it before signalling.
-            _claim = claim ?? throw new UnreachableException("The Avalonia UI thread signalled without a dispatcher claim.");
+            _claim = claim ?? throw new UnreachableException("The Avalonia UI thread failed to claim Avalonia's dispatcher.");
         }
     }
 
@@ -138,6 +144,11 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     public Thread MainThread { get; }
 
     public Dispatcher Dispatcher => _claim.GetDispatcher();
+
+    /// <summary>
+    /// Why the UI thread can't own Avalonia's dispatcher, or <see langword="null"/> when it does. Known once constructed.
+    /// </summary>
+    internal Exception? ClaimError => (_claim as ClaimFailed)?.Error;
 
     public SynchronizationContext SynchronizationContext => _synchronizationContext;
 
@@ -192,9 +203,9 @@ internal sealed class AvaloniaThread : IAvaloniaThread, IDisposable
     /// </summary>
     internal void Start()
     {
-        if (_neverRuns && _claim is ClaimFailed failed)
+        if (_neverRuns)
         {
-            _started.TrySetException(failed.Error);
+            _started.TrySetException(ClaimError ?? new UnreachableException("A UI thread that never runs has no claim error."));
             return;
         }
 

@@ -22,7 +22,9 @@ public interface IAvaloniaThread
     /// never starts, is aborted: <c>InvokeAsync</c> callers get a cancelled task.
     /// Do not await it inside a hosted service's StartAsync: the UI starts only after every StartAsync has returned.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Avalonia's UI thread was already taken by another thread.</exception>
+    /// <exception cref="InvalidOperationException">The host couldn't take Avalonia's UI thread, and host startup fails with the
+    /// same error: another thread already took it, Avalonia couldn't create its dispatcher, or on macOS the host wasn't started
+    /// with <c>RunAvalonia()</c>.</exception>
     Dispatcher Dispatcher { get; }
 
     /// <summary>
